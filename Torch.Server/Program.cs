@@ -1,16 +1,9 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.ServiceProcess;
-using System.Text;
-using System.Threading;
-using Microsoft.VisualBasic.Devices;
 using NLog;
-using NLog.Fluent;
 using NLog.Targets;
 using Torch.Utils;
 
@@ -25,14 +18,15 @@ namespace Torch.Server
         public static void Main(string[] args)
         {
             Target.Register<FlowDocumentTarget>("FlowDocument");
-            //Ensures that all the files are downloaded in the Torch directory.
+
+            // Ensures that all the files are downloaded in the Torch directory.
             var workingDir = new FileInfo(typeof(Program).Assembly.Location).Directory.ToString();
             var binDir = Path.Combine(workingDir, "DedicatedServer64");
+
             Directory.SetCurrentDirectory(workingDir);
 
-            //HACK for block skins update
-            var badDlls = new[]
-            {
+            // HACK for block skins update
+            var badDlls = new[] {
                 "System.Security.Principal.Windows.dll",
                 "VRage.Platform.Windows.dll"
             };
@@ -53,7 +47,7 @@ namespace Torch.Server
                 return;
             }
 
-            try 
+            try
             {
                 if (!TorchLauncher.IsTorchWrapped())
                 {
@@ -62,19 +56,24 @@ namespace Torch.Server
                 }
 
                 // Breaks on Windows Server 2019
-                if ((!new ComputerInfo().OSFullName.Contains("Server 2019") && !new ComputerInfo().OSFullName.Contains("Server 2022")) && !Environment.UserInteractive)
+                if (!RuntimeInformation.OSDescription.Contains("Server 2019")
+                    && !RuntimeInformation.OSDescription.Contains("Server 2022")
+                    && !Environment.UserInteractive)
                 {
                     using (var service = new TorchService(args))
                         ServiceBase.Run(service);
+
                     return;
                 }
 
                 var initializer = new Initializer(workingDir);
+
                 if (!initializer.Initialize(args))
                     return;
 
                 initializer.Run();
-            } catch (Exception runException)
+            }
+            catch (Exception runException)
             {
                 var log = LogManager.GetCurrentClassLogger();
                 log.Fatal(runException.ToString());
