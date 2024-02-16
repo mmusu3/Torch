@@ -10,17 +10,19 @@ namespace Torch.Patches
     public static class SteamLoginPatch
     {
         private static readonly ILogger Log = LogManager.GetCurrentClassLogger();
-        
+
 #pragma warning disable CS0649
         [ReflectedMethodInfo(null, "LogOnAnonymous", TypeName = "VRage.Steam.MySteamGameServer, VRage.Steam")]
-        private static readonly MethodInfo LoginMethod;
+        private static MethodInfo LoginMethod;
+
         [ReflectedMethodInfo(typeof(SteamLoginPatch), nameof(Prefix))]
-        private static readonly MethodInfo PrefixMethod;
-        
+        private static MethodInfo PrefixMethod;
+
         [ReflectedMethodInfo(null, "WaitStart", TypeName = "VRage.Steam.MySteamGameServer, VRage.Steam")]
-        private static readonly MethodInfo WaitStartMethod;
+        private static MethodInfo WaitStartMethod;
+
         [ReflectedMethodInfo(typeof(SteamLoginPatch), nameof(WaitStartLonger))]
-        private static readonly MethodInfo WaitStartLongerMethod;
+        private static MethodInfo WaitStartLongerMethod;
 #pragma warning restore CS0649
 
         public static void Patch(PatchContext context)
@@ -29,7 +31,7 @@ namespace Torch.Patches
             context.GetPattern(WaitStartMethod).Prefixes.Add(WaitStartLongerMethod);
             Log.Info("Applied custom WaitStart timeout");
         }
-        
+
         private static bool Prefix()
         {
 #pragma warning disable CS0618
