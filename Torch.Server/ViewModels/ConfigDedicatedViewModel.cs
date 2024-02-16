@@ -1,30 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using NLog;
 using Sandbox.Engine.Utils;
 using Torch.Collections;
 using Torch.Server.Managers;
-using VRage.Game;
-using VRage.Game.ModAPI;
 using Torch.Utils.SteamWorkshopTools;
-using Torch.Collections;
+using VRage.Game;
 
 namespace Torch.Server.ViewModels
 {
     public class ConfigDedicatedViewModel : ViewModel
     {
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+
         private MyConfigDedicated<MyObjectBuilder_SessionSettings> _config;
         public MyConfigDedicated<MyObjectBuilder_SessionSettings> Model => _config;
 
-        public ConfigDedicatedViewModel() : this(new MyConfigDedicated<MyObjectBuilder_SessionSettings>(""))
-        {
-
-        }
+        public ConfigDedicatedViewModel()
+            : this(new MyConfigDedicated<MyObjectBuilder_SessionSettings>("")) { }
 
         public ConfigDedicatedViewModel(MyConfigDedicated<MyObjectBuilder_SessionSettings> configDedicated)
         {
@@ -65,6 +60,7 @@ namespace Torch.Server.ViewModels
         public SessionSettingsViewModel SessionSettings { get => _sessionSettings; set { _sessionSettings = value; OnPropertyChanged(); } }
 
         public MtObservableList<WorldViewModel> Worlds { get; } = new MtObservableList<WorldViewModel>();
+
         private WorldViewModel _selectedWorld;
         public WorldViewModel SelectedWorld
         {
@@ -78,16 +74,17 @@ namespace Torch.Server.ViewModels
 
         public async Task UpdateAllModInfosAsync(Action<string> messageHandler = null)
         {
-            if (Mods.Count() == 0)
+            if (Mods.Count == 0)
                 return;
 
             var ids = Mods.Select(m => m.PublishedFileId);
             var workshopService = WebAPI.Instance;
+
             Dictionary<ulong, PublishedItemDetails> modInfos = null;
 
             try
             {
-                modInfos = (await workshopService.GetPublishedFileDetails(ids.ToArray()));
+                modInfos = await workshopService.GetPublishedFileDetails(ids.ToArray());
             }
             catch (Exception e)
             {
@@ -99,16 +96,16 @@ namespace Torch.Server.ViewModels
 
             foreach (var mod in Mods)
             {
-                if (!modInfos.ContainsKey(mod.PublishedFileId) || modInfos[mod.PublishedFileId] == null)
+                if (!modInfos.TryGetValue(mod.PublishedFileId, out var modInfo) || modInfo == null)
                 {
                     Log.Error($"Failed to retrieve info for mod with workshop id '{mod.PublishedFileId}'!");
                 }
                 //else if (!modInfo.Tags.Contains(""))
                 else
                 {
-                    mod.FriendlyName = modInfos[mod.PublishedFileId].Title;
-                    mod.Description = modInfos[mod.PublishedFileId].Description;
-                    //mod.Name = modInfos[mod.PublishedFileId].FileName;
+                    mod.FriendlyName = modInfo.Title;
+                    mod.Description = modInfo.Description;
+                    //mod.Name = modInfo.FileName;
                 }
             }
 
@@ -130,7 +127,6 @@ namespace Torch.Server.ViewModels
         }
 
         public List<ulong> Reserved { get => _config.Reserved; set => SetValue(x => _config.Reserved = x, value); }
-
 
         public int AsteroidAmount { get => _config.AsteroidAmount; set => SetValue(x => _config.AsteroidAmount = x, value); }
 
@@ -162,19 +158,22 @@ namespace Torch.Server.ViewModels
         {
             get
             {
-                if (string.IsNullOrEmpty(_password))
-                {
-                    if (string.IsNullOrEmpty(_config.ServerPasswordHash))
-                        return string.Empty;
-                    return "**********";
-                }
-                return _password;
+                if (!string.IsNullOrEmpty(_password))
+                    return _password;
+
+                if (string.IsNullOrEmpty(_config.ServerPasswordHash))
+                    return string.Empty;
+
+                return "**********";
             }
             set
             {
                 _password = value;
-                if(!string.IsNullOrEmpty(value))
+
+                if (!string.IsNullOrEmpty(value))
+                {
                     _config.SetPassword(value);
+                }
                 else
                 {
                     _config.ServerPasswordHash = null;
