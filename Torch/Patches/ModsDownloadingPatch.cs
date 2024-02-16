@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using NLog;
-using Sandbox;
 using Sandbox.Engine.Networking;
-using Torch.API;
 using Torch.Managers.PatchManager;
-using Torch.Managers.PatchManager.MSIL;
 using Torch.Utils;
 using VRage.Game;
 using VRage.GameServices;
@@ -18,9 +14,10 @@ namespace Torch.Patches
     internal static class ModsDownloadingPatch
     {
         private static readonly Logger _log = LogManager.GetCurrentClassLogger();
+
 #pragma warning disable 649
         [ReflectedMethodInfo(typeof(MyWorkshop), nameof(MyWorkshop.DownloadWorldModsBlocking))]
-        private readonly static MethodInfo _downloadWorldModsBlockingMethod;
+        private static MethodInfo _downloadWorldModsBlockingMethod;
 #pragma warning restore 649
 
         public static void Patch(PatchContext ctx)
@@ -32,15 +29,18 @@ namespace Torch.Patches
                 .Add(typeof(ModsDownloadingPatch).GetMethod(nameof(Postfix)));
 #endif
         }
+
         public static void Postfix(MyWorkshop.ResultData __result, List<MyObjectBuilder_Checkpoint.ModItem> mods)
         {
-            if (__result.Result == MyGameServiceCallResult.OK) return;
+            if (__result.Result == MyGameServiceCallResult.OK)
+                return;
+
             _log.Warn("Missing Mods:");
+
             var mismatchMods = mods.Where(b => __result.Mods.All(c => b.PublishedFileId != c.Id));
+
             foreach (var mod in mismatchMods)
-            {
                 _log.Warn($"\t{mod.PublishedFileId} : {mod.FriendlyName}");
-            }
         }
     }
 }
