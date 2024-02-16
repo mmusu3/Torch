@@ -1,12 +1,11 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using NLog;
 using Torch.Managers.PatchManager.MSIL;
 using Torch.Managers.PatchManager.Transpile;
 using Torch.Utils;
@@ -53,15 +52,26 @@ namespace Torch.Managers.PatchManager
         }
 
 #pragma warning disable 649
-        [ReflectedStaticMethod(Type = typeof(RuntimeHelpers), Name = "_CompileMethod", OverrideTypeNames = new[] {"System.IRuntimeMethodInfo"})]
+#nullable disable
+#if NETFRAMEWORK
+        [ReflectedStaticMethod(Type = typeof(RuntimeHelpers), Name = "_CompileMethod", OverrideTypeNames = new[] { "System.IRuntimeMethodInfo" })]
         private static Action<object> _compileDynamicMethod;
 
         [ReflectedMethod(Name = "GetMethodInfo")]
         private static Func<RuntimeMethodHandle, object> _getMethodInfo;
+#else
+        private static ConstructorInfo _runtimeMethodHandleInternalCtor = typeof(RuntimeMethodHandle).Assembly.GetType("System.RuntimeMethodHandleInternal")!
+            .GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, new[] { typeof(IntPtr) });
+
+        [ReflectedStaticMethod(Type = typeof(RuntimeHelpers), Name = "CompileMethod", OverrideTypeNames = new[] { "System.RuntimeMethodHandleInternal" })]
+        private static Action<object> _compileDynamicMethod;
+#endif
 
         [ReflectedMethod(Name = "GetMethodDescriptor")]
         private static Func<DynamicMethod, RuntimeMethodHandle> _getMethodHandle;
+#nullable enable
 #pragma warning restore 649
+
         /// <summary>
         /// Forces the given dynamic method to be compiled
         /// </summary>
@@ -70,8 +80,14 @@ namespace Torch.Managers.PatchManager
         {
             // Force it to compile
             RuntimeMethodHandle handle = _getMethodHandle.Invoke(method);
+
+#if NETFRAMEWORK
             object runtimeMethodInfo = _getMethodInfo.Invoke(handle);
             _compileDynamicMethod.Invoke(runtimeMethodInfo);
+#else
+            object internalHandle = _runtimeMethodHandleInternalCtor.Invoke([ handle.Value ])!;
+            _compileDynamicMethod.Invoke(internalHandle);
+#endif
         }
     }
 }

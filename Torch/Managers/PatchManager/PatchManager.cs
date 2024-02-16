@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -6,7 +8,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using NLog;
 using Torch.API;
-using Torch.Managers.PatchManager.Transpile;
 
 namespace Torch.Managers.PatchManager
 {
@@ -17,24 +18,30 @@ namespace Torch.Managers.PatchManager
     {
         private static readonly Logger _log = LogManager.GetCurrentClassLogger();
 
+        private static readonly HashSet<Type> _patchShims = new HashSet<Type>();
+
         internal static void AddPatchShims(Assembly asm)
         {
             foreach (Type t in asm.GetTypes())
+            {
                 if (t.HasAttribute<PatchShimAttribute>())
                     AddPatchShim(t);
+            }
         }
 
-        private static readonly HashSet<Type> _patchShims = new HashSet<Type>();
         // Internal, not static, so the static cctor of TorchBase can hookup the GameStatePatchShim which tells us when
         // its safe to patch the rest of the game.
         internal static void AddPatchShim(Type type)
         {
             lock (_patchShims)
+            {
                 if (!_patchShims.Add(type))
                     return;
+            }
+
             if (!type.IsSealed || !type.IsAbstract)
                 _log.Warn($"Registering type {type.FullName} as a patch shim type, even though it isn't declared singleton");
-            MethodInfo method = type.GetMethod("Patch", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
+            MethodInfo? method = type.GetMethod("Patch", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
             if (method == null)
             {
                 _log.Error($"Patch shim type {type.FullName} doesn't have a static Patch method.");
@@ -57,9 +64,8 @@ namespace Torch.Managers.PatchManager
         /// Creates a new patch manager.
         /// </summary>
         /// <param name="torchInstance"></param>
-        public PatchManager(ITorchBase torchInstance) : base(torchInstance)
-        {
-        }
+        public PatchManager(ITorchBase torchInstance)
+            : base(torchInstance) { }
 
         private static readonly Dictionary<MethodBase, DecoratedMethod> _rewritePatterns = new Dictionary<MethodBase, DecoratedMethod>();
         private static readonly Dictionary<Assembly, List<PatchContext>> _contexts = new Dictionary<Assembly, List<PatchContext>>();
@@ -71,7 +77,7 @@ namespace Torch.Managers.PatchManager
         {
             lock (_rewritePatterns)
             {
-                if (_rewritePatterns.TryGetValue(method, out DecoratedMethod pattern))
+                if (_rewritePatterns.TryGetValue(method, out DecoratedMethod? pattern))
                     return pattern;
                 var res = new DecoratedMethod(method);
                 _rewritePatterns.Add(method, res);
@@ -89,7 +95,6 @@ namespace Torch.Managers.PatchManager
             return GetPatternInternal(method);
         }
 
-
         /// <summary>
         /// Creates a new <see cref="PatchContext"/> used for tracking changes.  A call to <see cref="Commit"/> will apply the patches.
         /// </summary>
@@ -100,7 +105,7 @@ namespace Torch.Managers.PatchManager
             var context = new PatchContext();
             lock (_contexts)
             {
-                if (!_contexts.TryGetValue(assembly, out List<PatchContext> localContexts))
+                if (!_contexts.TryGetValue(assembly, out List<PatchContext>? localContexts))
                     _contexts.Add(assembly, localContexts = new List<PatchContext>());
                 localContexts.Add(context);
             }
@@ -118,7 +123,7 @@ namespace Torch.Managers.PatchManager
             context.RemoveAll();
             lock (_contexts)
             {
-                if (_contexts.TryGetValue(assembly, out List<PatchContext> localContexts))
+                if (_contexts.TryGetValue(assembly, out List<PatchContext>? localContexts))
                     localContexts.Remove(context);
             }
         }
@@ -129,9 +134,9 @@ namespace Torch.Managers.PatchManager
         /// <param name="assembly">Assembly to retrieve owned contexts for</param>
         /// <param name="callback">Callback to run for before each context is freed, ignored if null.</param>
         /// <returns>number of contexts freed</returns>
-        internal int FreeAllContexts(Assembly assembly, Action<PatchContext> callback = null)
+        internal int FreeAllContexts(Assembly assembly, Action<PatchContext>? callback = null)
         {
-            List<PatchContext> localContexts;
+            List<PatchContext>? localContexts;
             lock (_contexts)
             {
                 if (!_contexts.TryGetValue(assembly, out localContexts))
@@ -150,18 +155,20 @@ namespace Torch.Managers.PatchManager
             return count;
         }
 
-
         private static int _finishedPatchCount, _dirtyPatchCount;
 
         private static void DoCommit(DecoratedMethod method)
         {
             if (!method.HasChanged())
                 return;
+
             method.Commit();
+
             int value = Interlocked.Increment(ref _finishedPatchCount);
-            var actualPercentage = (value * 100) / _dirtyPatchCount;
-            var currentPrintGroup = actualPercentage / 10;
-            var prevPrintGroup = (value - 1) * 10 / _dirtyPatchCount;
+            int actualPercentage = (value * 100) / _dirtyPatchCount;
+            int currentPrintGroup = actualPercentage / 10;
+            int prevPrintGroup = (value - 1) * 10 / _dirtyPatchCount;
+
             if (currentPrintGroup != prevPrintGroup && value >= 1)
             {
                 _log.Info($"Patched {value}/{_dirtyPatchCount}.  ({actualPercentage:D2}%)");
@@ -177,9 +184,9 @@ namespace Torch.Managers.PatchManager
                 _finishedPatchCount = 0;
                 _dirtyPatchCount = _rewritePatterns.Values.Sum(x => x.HasChanged() ? 1 : 0);
 #if false
-                ParallelTasks.Parallel.ForEach(_rewritePatterns.Values.Where(x => !x.PrintMsil), DoCommit);
+            ParallelTasks.Parallel.ForEach(_rewritePatterns.Values.Where(x => !x.PrintMsil), DoCommit);
                 foreach (DecoratedMethod m in _rewritePatterns.Values.Where(x => x.PrintMsil))
-                    DoCommit(m);
+                DoCommit(m);
 #else
                 foreach (DecoratedMethod m in _rewritePatterns.Values)
                     DoCommit(m);
@@ -211,8 +218,10 @@ namespace Torch.Managers.PatchManager
             {
                 _log.Info("Removing all patches...");
                 foreach (List<PatchContext> set in _contexts.Values)
+                {
                     foreach (PatchContext ctx in set)
                         ctx.RemoveAll();
+                }
                 _contexts.Clear();
                 foreach (DecoratedMethod m in _rewritePatterns.Values)
                     m.Revert();

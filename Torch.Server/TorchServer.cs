@@ -52,7 +52,7 @@ namespace Torch.Server
         private Timer _watchdog;
         private int _players;
         private MultiplayerManagerDedicated _multiplayerManagerDedicated;
-        
+
         internal bool FatalException { get; set; }
 
         private System.Timers.Timer _simUpdateTimer = new System.Timers.Timer(200);
@@ -70,10 +70,10 @@ namespace Torch.Server
             AddManager(new GameUpdateManager(this));
 
             Managers.GetManager<UpdateManager>().CheckAndUpdateTorch();
-            
+
             var sessionManager = Managers.GetManager<ITorchSessionManager>();
             sessionManager.AddFactory(x => new MultiplayerManagerDedicated(this));
-            
+
             // Needs to be done at some point after MyVRageWindows.Init
             // where the debug listeners are registered
             if (!((TorchConfig)Config).EnableAsserts)
@@ -93,7 +93,7 @@ namespace Torch.Server
 
         public bool HasRun { get => _hasRun; set => SetValue(ref _hasRun, value); }
 
-        
+
         /// <inheritdoc />
         public float SimulationRatio
         {
@@ -146,7 +146,7 @@ namespace Torch.Server
         public override void Init()
         {
             var updateManager = Managers.GetManager<UpdateManager>();
-            
+
             Log.Info("Initializing server");
             MySandboxGame.IsDedicated = true;
             base.Init();
@@ -215,21 +215,24 @@ namespace Torch.Server
             {
                 var torch = (TorchServer)torch0;
                 var config = (TorchConfig)torch.Config;
-                
+
                 if (IsRunning)
                 {
                     config.TempAutostart = true;
                     torch.Stop();
                 }
-                
+
                 LogManager.Flush();
 
-                string exe = Assembly.GetExecutingAssembly().Location;
+                string exe = Application.ExecutablePath;
                 Debug.Assert(exe != null);
-                config.WaitForPID = Process.GetCurrentProcess().Id.ToString();
+
+                var currentProcess = Process.GetCurrentProcess();
+                config.WaitForPID = currentProcess.Id.ToString();
+
                 Process.Start(exe, config.ToString());
 
-                Process.GetCurrentProcess().Kill();
+                currentProcess.Kill();
             }
         }
 
@@ -254,6 +257,7 @@ namespace Torch.Server
         public override void Init(object gameInstance)
         {
             base.Init(gameInstance);
+
             if (gameInstance is MySandboxGame && MySession.Static != null)
                 State = ServerState.Running;
             else
@@ -264,17 +268,16 @@ namespace Torch.Server
         public override void Update()
         {
             base.Update();
+
             // Stops 1.00-1.02 flicker.
             SimulationRatio = Math.Min(Sync.ServerSimulationRatio, 1);
-            var elapsed = TimeSpan.FromSeconds(Math.Floor(_uptime.Elapsed.TotalSeconds));
-            ElapsedPlayTime = elapsed;
+            ElapsedPlayTime = TimeSpan.FromSeconds(Math.Floor(_uptime.Elapsed.TotalSeconds));
             OnlinePlayers = _multiplayerManagerDedicated?.Players.Count ?? 0;
 
             if (_watchdog == null && Config.TickTimeout > 0)
             {
                 Log.Info("Starting server watchdog.");
-                _watchdog = new Timer(CheckServerResponding, this, TimeSpan.Zero,
-                    TimeSpan.FromSeconds(Config.TickTimeout));
+                _watchdog = new Timer(CheckServerResponding, this, TimeSpan.Zero, TimeSpan.FromSeconds(Config.TickTimeout));
             }
         }
 
@@ -284,7 +287,9 @@ namespace Torch.Server
         {
             var server = (TorchServer)state;
             var mre = new ManualResetEvent(false);
+
             server.Invoke(() => mre.Set());
+
             if (!mre.WaitOne(TimeSpan.FromSeconds(Instance.Config.TickTimeout)))
             {
                 if (server.FatalException)
@@ -294,10 +299,15 @@ namespace Torch.Server
                 }
 #if DEBUG
                 Log.Error(
-                    $"Server watchdog detected that the server was frozen for at least {((TorchServer) state).Config.TickTimeout} seconds.");
+                    $"Server watchdog detected that the server was frozen for at least {((TorchServer)state).Config.TickTimeout} seconds.");
+
+#if NETFRAMEWORK
                 Log.Error(DumpFrozenThread(MySandboxGame.Static.UpdateThread));
+#endif
 #else
+#if NETFRAMEWORK
                 Log.Error(DumpFrozenThread(MySandboxGame.Static.UpdateThread));
+#endif
                 throw new TimeoutException($"Server watchdog detected that the server was frozen for at least {((TorchServer)state).Config.TickTimeout} seconds.");
 #endif
             }
@@ -305,6 +315,7 @@ namespace Torch.Server
             Log.Debug("Server watchdog responded");
         }
 
+#if NETFRAMEWORK
         private static string DumpFrozenThread(Thread thread, int traces = 3, int pause = 5000)
         {
             var stacks = new List<string>(traces);
@@ -346,6 +357,7 @@ namespace Torch.Server
             }
 
             var stack = new StackTrace(thread, true);
+
             try
             {
                 thread.Resume();
@@ -357,7 +369,7 @@ namespace Torch.Server
 
             return stack;
         }
-
-        #endregion
+#endif
+#endregion
     }
 }

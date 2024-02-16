@@ -8,18 +8,10 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Threading;
 using NLog;
-using NLog.Targets;
 using Sandbox;
-using Sandbox.Engine.Utils;
-using Torch.Utils;
 using VRage;
-using VRage.FileSystem;
-using VRage.Scripting;
-using VRage.Utils;
 
 namespace Torch.Server
 {
@@ -29,7 +21,9 @@ namespace Torch.Server
         internal static Initializer Instance { get; private set; }
 
         private static readonly Logger Log = LogManager.GetLogger(nameof(Initializer));
+
         private bool _init;
+
         private const string STEAMCMD_DIR = "steamcmd";
         private const string STEAMCMD_ZIP = "temp.zip";
         private static readonly string STEAMCMD_PATH = $"{STEAMCMD_DIR}\\steamcmd.exe";
@@ -90,21 +84,22 @@ quit";
                 File.Delete(apiTarget);
                 File.Copy(apiSource, apiTarget);
             }
-            
+
             var havokSource = Path.Combine(basePath, "DedicatedServer64", "Havok.dll");
             var havokTarget = Path.Combine(basePath, "Havok.dll");
 
             if (!File.Exists(havokTarget))
             {
-                File.Copy(havokSource, havokTarget);   
+                File.Copy(havokSource, havokTarget);
             }
             else if (File.GetLastWriteTime(havokTarget) < File.GetLastWriteTime(havokSource))
-            {   
+            {
                 File.Delete(havokTarget);
                 File.Copy(havokSource, havokTarget);
             }
 
             InitConfig();
+
             if (!Config.Parse(args))
                 return false;
 
@@ -114,8 +109,10 @@ quit";
                 {
                     var pid = int.Parse(Config.WaitForPID);
                     var waitProc = Process.GetProcessById(pid);
+
                     Log.Info("Continuing in 5 seconds.");
                     Log.Warn($"Waiting for process {pid} to close");
+
                     while (!waitProc.HasExited)
                     {
                         Console.Write(".");
@@ -150,7 +147,7 @@ quit";
                     NativeMethods.FreeConsole();
                 }
 #endif
-                
+
                 var gameThread = new Thread(() =>
                 {
                     _server.Init();
@@ -161,9 +158,9 @@ quit";
                         _server.Start();
                     }
                 });
-                
+
                 gameThread.Start();
-                
+
                 var ui = new TorchUI(_server);
                 ui.ShowDialog();
             }
@@ -217,15 +214,16 @@ quit";
             }
 
             log.Info("Checking for DS updates.");
-            var steamCmdProc = new ProcessStartInfo(STEAMCMD_PATH, "+runscript runscript.txt")
-            {
+
+            var steamCmdProc = new ProcessStartInfo(STEAMCMD_PATH, "+runscript runscript.txt") {
                 WorkingDirectory = Path.Combine(Directory.GetCurrentDirectory(), STEAMCMD_DIR),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 StandardOutputEncoding = Encoding.ASCII
             };
+
             var cmd = Process.Start(steamCmdProc);
-            
+
             // ReSharper disable once PossibleNullReferenceException
             while (!cmd.HasExited)
             {
@@ -234,7 +232,7 @@ quit";
             }
         }
 
-        private void LogException(Exception ex)
+        private static void LogException(Exception ex)
         {
             if (ex is AggregateException ag)
             {
@@ -243,9 +241,9 @@ quit";
 
                 return;
             }
-            
+
             Log.Fatal(ex);
-            
+
             if (ex is ReflectionTypeLoadException extl)
             {
                 foreach (var exl in extl.LoaderExceptions)
@@ -253,7 +251,7 @@ quit";
 
                 return;
             }
-            
+
             if (ex.InnerException != null)
             {
                 LogException(ex.InnerException);
@@ -264,8 +262,8 @@ quit";
         {
             var shortdate = DateTime.Now.ToString("yyyy-MM-dd");
             var shortdateWithTime = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss");
-            
-            var dumpPath = $"Logs\\MiniDumpT{Thread.CurrentThread.ManagedThreadId}-{shortdateWithTime}.dmp";
+
+            var dumpPath = $"Logs\\MiniDumpT{Environment.CurrentManagedThreadId}-{shortdateWithTime}.dmp";
             Log.Info($"Generating minidump at {dumpPath}");
             var dumpFlags = MyMiniDump.Options.Normal | MyMiniDump.Options.WithProcessThreadData | MyMiniDump.Options.WithThreadInfo;
             MyVRage.Platform.CrashReporting.WriteMiniDump(dumpPath, dumpFlags, IntPtr.Zero);
@@ -275,13 +273,13 @@ quit";
                 List<string> additionalFiles = new List<string>();
                 if (File.Exists(dumpPath))
                     additionalFiles.Add(dumpPath);
-                
+
                 CrashInfo info = MyErrorReporter.BuildCrashInfo();
                 MyErrorReporter.ReportNotInteractive($"Logs\\Keen-{shortdate}.log", info.AnalyticId, false,
                     additionalFiles.ToList(), true, string.Empty, string.Empty, info);
             }
-            
-            if(Config.DeleteMiniDumps)
+
+            if (Config.DeleteMiniDumps)
                 File.Delete(dumpPath);
         }
 
@@ -296,8 +294,15 @@ quit";
             {
                 Console.WriteLine("Restarting in 5 seconds.");
                 Thread.Sleep(5000);
+
                 var exe = typeof(Program).Assembly.Location;
+
+#if NET5_0_OR_GREATER
+                Config.WaitForPID = Environment.ProcessId.ToString();
+#else
                 Config.WaitForPID = Process.GetCurrentProcess().Id.ToString();
+#endif
+
                 Process.Start(exe, Config.ToString());
             }
             else

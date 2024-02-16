@@ -43,8 +43,13 @@ namespace Torch.Patches
         [ReflectedMethodInfo(typeof(MyMultiplayerServerBase), nameof(MyMultiplayerServerBase.ValidationFailed), Parameters = new[] { typeof(ulong), typeof(bool), typeof(string), typeof(bool) })]
         private static MethodInfo _logSuppressValidationFailed;
 
+#if NET8_0_OR_GREATER
+        [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetIdentByThread")]
+        private static extern int _getIndentByThread(MyLog log, int threadId);
+#else
         [ReflectedMethod(Name = "GetIdentByThread")]
         private static Func<MyLog, int, int> _getIndentByThread;
+#endif
 #pragma warning restore 649
 
         public static void Patch(PatchContext context)

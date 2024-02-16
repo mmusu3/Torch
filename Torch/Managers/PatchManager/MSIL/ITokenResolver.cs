@@ -104,46 +104,71 @@ namespace Torch.Managers.PatchManager.MSIL
         private readonly GetTypeFromHandleUnsafe _getTypeFromHandleUnsafe;
         private readonly ConstructorInfo _runtimeFieldHandleStubCtor;
         private readonly ConstructorInfo _runtimeMethodHandleInternalCtor;
+#if !NETFRAMEWORK
+        private readonly ConstructorInfo _runtimeFieldHandleInternalCtor;
+#endif
         private readonly SignatureResolver _signatureResolver;
         private readonly StringResolver _stringResolver;
-
         private readonly TokenResolver _tokenResolver;
 
         public DynamicMethodTokenResolver(DynamicMethod dynamicMethod)
         {
-            object resolver = typeof(DynamicMethod)
-                .GetField("m_resolver", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(dynamicMethod);
+            object resolver = typeof(DynamicMethod).GetField(
+#if NETFRAMEWORK
+                "m_resolver"
+#else
+                "_resolver"
+#endif
+                , BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(dynamicMethod);
+
             if (resolver == null) throw new ArgumentException("The dynamic method's IL has not been finalized.");
 
-            _tokenResolver = (TokenResolver) resolver.GetType()
+            _tokenResolver = (TokenResolver)resolver.GetType()
                 .GetMethod("ResolveToken", BindingFlags.Instance | BindingFlags.NonPublic)
                 .CreateDelegate(typeof(TokenResolver), resolver);
-            _stringResolver = (StringResolver) resolver.GetType()
+            _stringResolver = (StringResolver)resolver.GetType()
                 .GetMethod("GetStringLiteral", BindingFlags.Instance | BindingFlags.NonPublic)
                 .CreateDelegate(typeof(StringResolver), resolver);
-            _signatureResolver = (SignatureResolver) resolver.GetType()
+            _signatureResolver = (SignatureResolver)resolver.GetType()
                 .GetMethod("ResolveSignature", BindingFlags.Instance | BindingFlags.NonPublic)
                 .CreateDelegate(typeof(SignatureResolver), resolver);
 
-            _getTypeFromHandleUnsafe = (GetTypeFromHandleUnsafe) typeof(Type)
+            _getTypeFromHandleUnsafe = (GetTypeFromHandleUnsafe)typeof(Type)
                 .GetMethod("GetTypeFromHandleUnsafe", BindingFlags.Static | BindingFlags.NonPublic, null,
-                    new[] {typeof(IntPtr)}, null).CreateDelegate(typeof(GetTypeFromHandleUnsafe), null);
+                    new[] { typeof(IntPtr) }, null).CreateDelegate(typeof(GetTypeFromHandleUnsafe), null);
             Type runtimeType = typeof(RuntimeTypeHandle).Assembly.GetType("System.RuntimeType");
 
             Type runtimeMethodHandleInternal =
                 typeof(RuntimeTypeHandle).Assembly.GetType("System.RuntimeMethodHandleInternal");
+
             _getMethodBase = runtimeType.GetMethod("GetMethodBase", BindingFlags.Static | BindingFlags.NonPublic, null,
-                new[] {runtimeType, runtimeMethodHandleInternal}, null);
+                new[] { runtimeType, runtimeMethodHandleInternal }, null);
+
             _runtimeMethodHandleInternalCtor =
                 runtimeMethodHandleInternal.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null,
-                    new[] {typeof(IntPtr)}, null);
+                new[] { typeof(IntPtr) }, null);
+
+#if !NETFRAMEWORK
+            Type runtimeFieldHandleInternal =
+                typeof(RuntimeTypeHandle).Assembly.GetType("System.RuntimeFieldHandleInternal");
+
+            _runtimeFieldHandleInternalCtor = runtimeFieldHandleInternal.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null,
+                new[] { typeof(IntPtr) }, null);
+#endif
 
             Type runtimeFieldInfoStub = typeof(RuntimeTypeHandle).Assembly.GetType("System.RuntimeFieldInfoStub");
+
             _runtimeFieldHandleStubCtor =
                 runtimeFieldInfoStub.GetConstructor(BindingFlags.Instance | BindingFlags.Public, null,
-                    new[] {typeof(IntPtr), typeof(object)}, null);
+#if NETFRAMEWORK
+                new[] { typeof(IntPtr), typeof(object) },
+#else
+                new[] { runtimeFieldHandleInternal, typeof(object) },
+#endif
+                null);
+
             _getFieldInfo = runtimeType.GetMethod("GetFieldInfo", BindingFlags.Static | BindingFlags.NonPublic, null,
-                new[] {runtimeType, typeof(RuntimeTypeHandle).Assembly.GetType("System.IRuntimeFieldInfo")}, null);
+                new[] { runtimeType, typeof(RuntimeTypeHandle).Assembly.GetType("System.IRuntimeFieldInfo") }, null);
         }
 
         public Type ResolveType(int token)
@@ -159,23 +184,28 @@ namespace Torch.Managers.PatchManager.MSIL
             IntPtr typeHandle, methodHandle, fieldHandle;
             _tokenResolver.Invoke(token, out typeHandle, out methodHandle, out fieldHandle);
 
-            return (MethodBase) _getMethodBase.Invoke(null, new[]
-            {
+            return (MethodBase)_getMethodBase.Invoke(null, new[] {
                 typeHandle == IntPtr.Zero ? null : _getTypeFromHandleUnsafe.Invoke(typeHandle),
-                _runtimeMethodHandleInternalCtor.Invoke(new object[] {methodHandle})
+                _runtimeMethodHandleInternalCtor.Invoke(new object[] { methodHandle })
             });
         }
 
         public FieldInfo ResolveField(int token)
         {
-            IntPtr typeHandle, methodHandle, fieldHandle;
-            _tokenResolver.Invoke(token, out typeHandle, out methodHandle, out fieldHandle);
+            IntPtr typeHandle, methodHandle, fieldHandlePtr;
+            _tokenResolver.Invoke(token, out typeHandle, out methodHandle, out fieldHandlePtr);
 
-            return (FieldInfo) _getFieldInfo.Invoke(null, new[]
-            {
-                typeHandle == IntPtr.Zero ? null : _getTypeFromHandleUnsafe.Invoke(typeHandle),
-                _runtimeFieldHandleStubCtor.Invoke(new object[] {fieldHandle, null})
-            });
+            Type reflectedType = typeHandle == IntPtr.Zero ? null : _getTypeFromHandleUnsafe.Invoke(typeHandle);
+
+            object fieldHandle = fieldHandlePtr;
+
+#if !NETFRAMEWORK
+            fieldHandle = _runtimeFieldHandleInternalCtor.Invoke(new object[] { fieldHandlePtr })!;
+#endif
+
+            object field = _runtimeFieldHandleStubCtor.Invoke(new object[] { fieldHandle, null });
+
+            return (FieldInfo)_getFieldInfo.Invoke(null, new[] { reflectedType, field });
         }
 
         public MemberInfo ResolveMember(int token)
@@ -184,18 +214,20 @@ namespace Torch.Managers.PatchManager.MSIL
             _tokenResolver.Invoke(token, out typeHandle, out methodHandle, out fieldHandle);
 
             if (methodHandle != IntPtr.Zero)
-                return (MethodBase) _getMethodBase.Invoke(null, new[]
-                {
+            {
+                return (MethodBase)_getMethodBase.Invoke(null, new[] {
                     typeHandle == IntPtr.Zero ? null : _getTypeFromHandleUnsafe.Invoke(typeHandle),
-                    _runtimeMethodHandleInternalCtor.Invoke(new object[] {methodHandle})
+                    _runtimeMethodHandleInternalCtor.Invoke(new object[] { methodHandle })
                 });
+            }
 
             if (fieldHandle != IntPtr.Zero)
-                return (FieldInfo) _getFieldInfo.Invoke(null, new[]
-                {
+            {
+                return (FieldInfo)_getFieldInfo.Invoke(null, new[] {
                     typeHandle == IntPtr.Zero ? null : _getTypeFromHandleUnsafe.Invoke(typeHandle),
-                    _runtimeFieldHandleStubCtor.Invoke(new object[] {fieldHandle, null})
+                    _runtimeFieldHandleStubCtor.Invoke(new object[] { fieldHandle, null })
                 });
+            }
 
             if (typeHandle != IntPtr.Zero)
                 return _getTypeFromHandleUnsafe.Invoke(typeHandle);

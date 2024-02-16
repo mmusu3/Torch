@@ -1,5 +1,8 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Windows.Controls;
 using NLog;
@@ -27,28 +30,37 @@ namespace Torch.Server.Managers
 
         private abstract class ModelFactory
         {
-            private readonly ConditionalWeakTable<EntityViewModel, EntityControlViewModel> _models = new ConditionalWeakTable<EntityViewModel, EntityControlViewModel>();
+            private readonly ConditionalWeakTable<EntityViewModel, EntityControlViewModel?> _models = new ConditionalWeakTable<EntityViewModel, EntityControlViewModel?>();
+#if !NETFRAMEWORK
+            public IEnumerable<KeyValuePair<EntityViewModel, EntityControlViewModel?>> Models => _models;
+#endif
 
             public abstract Delegate Delegate { get; }
 
-            protected abstract EntityControlViewModel Create(EntityViewModel evm);
+            protected abstract EntityControlViewModel? Create(EntityViewModel evm);
 
+#if NETFRAMEWORK
 #pragma warning disable 649
             [ReflectedGetter(Name = "Keys")]
-            private static Func<ConditionalWeakTable<EntityViewModel, EntityControlViewModel>, ICollection<EntityViewModel>> _weakTableKeys;
+            private static Func<ConditionalWeakTable<EntityViewModel, EntityControlViewModel?>, ICollection<EntityViewModel>> _weakTableKeys;
 #pragma warning restore 649
 
             /// <summary>
             /// Warning: Creates a giant list, avoid if possible.
             /// </summary>
             internal ICollection<EntityViewModel> Keys => _weakTableKeys(_models);
+#endif
 
-            internal EntityControlViewModel GetOrCreate(EntityViewModel evm)
+            internal EntityControlViewModel? GetOrCreate(EntityViewModel evm)
             {
                 return _models.GetValue(evm, Create);
             }
 
-            internal bool TryGet(EntityViewModel evm, out EntityControlViewModel res)
+            internal bool TryGet(EntityViewModel evm,
+#if !NETFRAMEWORK
+                [NotNullWhen(true)]
+#endif
+                out EntityControlViewModel? res)
             {
                 return _models.TryGetValue(evm, out res);
             }
@@ -64,7 +76,7 @@ namespace Torch.Server.Managers
                 _factory = factory;
             }
 
-            protected override EntityControlViewModel Create(EntityViewModel evm)
+            protected override EntityControlViewModel? Create(EntityViewModel evm)
             {
                 if (evm is T m)
                 {
@@ -103,8 +115,8 @@ namespace Torch.Server.Managers
 
                 while (i < _boundEntityViewModels.Count)
                 {
-                    if (_boundEntityViewModels[i].TryGetTarget(out EntityViewModel target) &&
-                        _boundViewModels.TryGetValue(target, out MtObservableList<EntityControlViewModel> components))
+                    if (_boundEntityViewModels[i].TryGetTarget(out EntityViewModel? target) &&
+                        _boundViewModels.TryGetValue(target, out MtObservableList<EntityControlViewModel>? components))
                     {
                         if (target is TEntityBaseModel tent)
                             UpdateBinding(target, components);
@@ -134,11 +146,17 @@ namespace Torch.Server.Managers
             {
                 for (var i = 0; i < _modelFactories.Count; i++)
                 {
-                    if (_modelFactories[i].Delegate == (Delegate)modelFactory)
+                    var factory = _modelFactories[i];
+
+                    if (factory.Delegate == (Delegate)modelFactory)
                     {
-                        foreach (var entry in _modelFactories[i].Keys)
+#if NETFRAMEWORK
+                        foreach (var entry in factory.Keys)
+#else
+                        foreach (var (entry, _) in factory.Models)
+#endif
                         {
-                            if (_modelFactories[i].TryGet(entry, out EntityControlViewModel ecvm) && ecvm != null
+                            if (factory.TryGet(entry, out var ecvm) && ecvm != null
                                 && _boundViewModels.TryGetValue(entry, out var binding))
                             {
                                 binding.Remove(ecvm);
@@ -196,8 +214,8 @@ namespace Torch.Server.Managers
 
             while (i < _boundEntityViewModels.Count)
             {
-                if (_boundEntityViewModels[i].TryGetTarget(out EntityViewModel target) &&
-                    _boundViewModels.TryGetValue(target, out MtObservableList<EntityControlViewModel> components))
+                if (_boundEntityViewModels[i].TryGetTarget(out EntityViewModel? target) &&
+                    _boundViewModels.TryGetValue(target, out MtObservableList<EntityControlViewModel>? components))
                 {
                     foreach (EntityControlViewModel component in components)
                         if (component is TEntityComponentModel)
@@ -226,7 +244,7 @@ namespace Torch.Server.Managers
         /// </summary>
         /// <param name="model">model to create a control for</param>
         /// <returns>control, or null if none</returns>
-        public Control CreateControl(EntityControlViewModel model)
+        public Control? CreateControl(EntityControlViewModel model)
         {
             lock (this)
             {

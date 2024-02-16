@@ -8,7 +8,6 @@ using System.Reflection.Emit;
 using NLog;
 using Torch.Managers.PatchManager.MSIL;
 using Torch.Utils;
-using VRage.Game.VisualScripting.Utils;
 
 namespace Torch.Managers.PatchManager.Transpile
 {
@@ -21,6 +20,7 @@ namespace Torch.Managers.PatchManager.Transpile
         private readonly byte[] _msilBytes;
 
         internal Dictionary<int, MsilLabel> Labels { get; } = new Dictionary<int, MsilLabel>();
+
         private readonly List<MsilInstruction> _instructions = new List<MsilInstruction>();
         public IReadOnlyList<MsilInstruction> Instructions => _instructions;
 
@@ -43,8 +43,8 @@ namespace Torch.Managers.PatchManager.Transpile
             TokenResolver = new NormalTokenResolver(method);
         }
 
-
 #pragma warning disable 649
+#if NETFRAMEWORK
         [ReflectedMethod(Name = "BakeByteArray")]
         private static Func<ILGenerator, byte[]> _ilGeneratorBakeByteArray;
 
@@ -52,6 +52,15 @@ namespace Torch.Managers.PatchManager.Transpile
         private static Func<ILGenerator, Array> _ilGeneratorGetExceptionHandlers;
 
         private const string InternalExceptionInfo = "System.Reflection.Emit.__ExceptionInfo, mscorlib";
+#else
+        [ReflectedMethod(TypeName = "System.Reflection.Emit.RuntimeILGenerator, System.Private.CoreLib", Name = "BakeByteArray")]
+        private static Func<ILGenerator, byte[]> _ilGeneratorBakeByteArray;
+
+        [ReflectedMethod(TypeName = "System.Reflection.Emit.RuntimeILGenerator, System.Private.CoreLib", Name = "GetExceptions")]
+        private static Func<ILGenerator, Array> _ilGeneratorGetExceptionHandlers;
+
+        private const string InternalExceptionInfo = "System.Reflection.Emit.__ExceptionInfo, System.Private.CoreLib";
+#endif
 
         [ReflectedMethod(Name = "GetExceptionTypes", TypeName = InternalExceptionInfo)]
         private static Func<object, int[]> _exceptionHandlerGetTypes;
@@ -100,16 +109,17 @@ namespace Torch.Managers.PatchManager.Transpile
         {
             Labels.Clear();
             _instructions.Clear();
+
             using (var memory = new MemoryStream(_msilBytes))
             using (var reader = new BinaryReader(memory))
+            {
                 while (memory.Length > memory.Position)
                 {
-                    var opcodeOffset = (int) memory.Position;
-                    var instructionValue = (short) memory.ReadByte();
+                    var opcodeOffset = (int)memory.Position;
+                    var instructionValue = (short)memory.ReadByte();
+
                     if (Prefixes.Contains(instructionValue))
-                    {
-                        instructionValue = (short) ((instructionValue << 8) | memory.ReadByte());
-                    }
+                        instructionValue = (short)((instructionValue << 8) | memory.ReadByte());
 
                     if (!OpCodeLookup.TryGetValue(instructionValue, out OpCode opcode))
                     {
@@ -120,20 +130,22 @@ namespace Torch.Managers.PatchManager.Transpile
                     }
 
                     if (opcode.Size != memory.Position - opcodeOffset)
-                        throw new Exception(
-                            $"Opcode said it was {opcode.Size} but we read {memory.Position - opcodeOffset}");
-                    var instruction = new MsilInstruction(opcode)
-                    {
+                        throw new Exception($"Opcode said it was {opcode.Size} but we read {memory.Position - opcodeOffset}");
+
+                    var instruction = new MsilInstruction(opcode) {
                         Offset = opcodeOffset
                     };
+
                     _instructions.Add(instruction);
                     instruction.Operand?.Read(this, reader);
                 }
+            }
         }
 
         private void ResolveCatchClauses()
         {
             if (MethodBody != null)
+            {
                 foreach (var clause in MethodBody.ExceptionHandlingClauses)
                 {
                     AddEhHandler(clause.TryOffset, MsilTryCatchOperationType.BeginExceptionBlock);
@@ -145,8 +157,10 @@ namespace Torch.Managers.PatchManager.Transpile
                         AddEhHandler(clause.HandlerOffset, MsilTryCatchOperationType.BeginClauseBlock, clause.CatchType);
                     AddEhHandler(clause.HandlerOffset + clause.HandlerLength, MsilTryCatchOperationType.EndExceptionBlock);
                 }
+            }
 
             if (_dynamicExceptionTable != null)
+            {
                 foreach (var eh in _dynamicExceptionTable)
                 {
                     var catchCount = _exceptionHandlerGetCatchCount(eh);
@@ -157,15 +171,16 @@ namespace Torch.Managers.PatchManager.Transpile
                     var tryAddr = _exceptionHandlerGetStart(eh);
                     var endAddr = _exceptionHandlerGetEnd(eh);
                     var endFinallyAddr = _exceptionHandlerGetFinallyEnd(eh);
+
                     for (var i = 0; i < catchCount; i++)
                     {
-                        var flags = (ExceptionHandlingClauseOptions) exTypes[i];
+                        var flags = (ExceptionHandlingClauseOptions)exTypes[i];
                         var endAddress = (flags & ExceptionHandlingClauseOptions.Finally) != 0 ? endFinallyAddr : endAddr;
 
                         var catchAddr = exCatches[i];
                         var catchEndAddr = exCatchesEnd[i];
                         var filterAddr = exFilters[i];
-                        
+
                         AddEhHandler(tryAddr, MsilTryCatchOperationType.BeginExceptionBlock);
                         if ((flags & ExceptionHandlingClauseOptions.Fault) != 0)
                             AddEhHandler(catchAddr, MsilTryCatchOperationType.BeginFaultBlock);
@@ -176,12 +191,13 @@ namespace Torch.Managers.PatchManager.Transpile
                         AddEhHandler(catchEndAddr, MsilTryCatchOperationType.EndExceptionBlock);
                     }
                 }
+            }
         }
 
         private void AddEhHandler(int offset, MsilTryCatchOperationType op, Type type = null)
         {
             var instruction = FindInstruction(offset);
-            instruction.TryCatchOperations.Add(new MsilTryCatchOperation(op, type) {NativeOffset = offset});
+            instruction.TryCatchOperations.Add(new MsilTryCatchOperation(op, type) { NativeOffset = offset });
             instruction.TryCatchOperations.Sort((a, b) => a.NativeOffset.CompareTo(b.NativeOffset));
         }
 
@@ -210,7 +226,6 @@ namespace Torch.Managers.PatchManager.Transpile
             }
         }
 
-
         public string ToHumanMsil()
         {
             return string.Join("\n", _instructions.Select(x => $"IL_{x.Offset:X4}: {x.StackChange():+0;-#} {x}"));
@@ -223,15 +238,16 @@ namespace Torch.Managers.PatchManager.Transpile
         {
             OpCodeLookup = new Dictionary<short, OpCode>();
             Prefixes = new HashSet<short>();
+
             foreach (FieldInfo field in typeof(OpCodes).GetFields(BindingFlags.Static | BindingFlags.Public))
             {
-                var opcode = (OpCode) field.GetValue(null);
+                var opcode = (OpCode)field.GetValue(null);
+
                 if (opcode.OpCodeType != OpCodeType.Nternal)
                     OpCodeLookup.Add(opcode.Value, opcode);
-                if ((ushort) opcode.Value > 0xFF)
-                {
-                    Prefixes.Add((short) ((ushort) opcode.Value >> 8));
-                }
+
+                if ((ushort)opcode.Value > 0xFF)
+                    Prefixes.Add((short)((ushort)opcode.Value >> 8));
             }
         }
     }
