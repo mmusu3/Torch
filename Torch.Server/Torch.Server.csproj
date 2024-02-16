@@ -1,24 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
     <OutputType>Exe</OutputType>
+    <TargetFrameworks>net48;net8-windows</TargetFrameworks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <LangVersion>latest</LangVersion>
     <Platforms>x64</Platforms>
     <StartupObject>Torch.Server.Program</StartupObject>
     <ApplicationIcon>torchicon.ico</ApplicationIcon>
+    <OutputPath>..\bin\$(Platform)_$(Configuration)\</OutputPath>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <OutputPath>..\bin\x64\Debug\</OutputPath>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <OutputPath>..\bin\x64\Release\</OutputPath>
-    <DocumentationFile>..\bin\x64\Release\Torch.Server.xml</DocumentationFile>
+    <DocumentationFile>$(OutputPath)\$(TargetFramework)\Torch.Server.xml</DocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -131,15 +127,23 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="System.Configuration.Install"/>
-    <PackageReference Include="ControlzEx" Version="3.0.2.4" />
-    <PackageReference Include="MahApps.Metro" Version="1.6.1" />
+    <PackageReference Include="ControlzEx" Version="5.0.2" />
+    <PackageReference Include="MahApps.Metro" Version="2.4.10" />
     <PackageReference Include="Markdown.Xaml" Version="1.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="NLog" Version="4.7.15" />
     <PackageReference Include="protobuf-net" Version="2.4.8" />
     <PackageReference Include="SteamKit2" Version="2.1.0" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
+  </ItemGroup>
+  <ItemGroup Condition="$(TargetFramework) != 'net48'">
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup Condition="$(TargetFramework) == 'net48'">
+    <PackageReference Include="MonoMod.Backports" Version="1.1.0">
+      <Aliases>mmbp</Aliases>
+    </PackageReference>
+    <Reference Include="System.Configuration.Install" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
   </ItemGroup>
 
@@ -161,6 +165,6 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <PostBuildEvent>copy "$(SolutionDir)NLog.config" "$(MSBuildProjectDirectory)\$(OutputPath)" &amp; copy "$(SolutionDir)NLog-user.config" "$(MSBuildProjectDirectory)\$(OutputPath)"</PostBuildEvent>
+    <PostBuildEvent>copy "$(SolutionDir)NLog.config" "$(MSBuildProjectDirectory)\$(OutputPath)\$(TargetFramework)" &amp; copy "$(SolutionDir)NLog-user.config" "$(MSBuildProjectDirectory)\$(OutputPath)\$(TargetFramework)"</PostBuildEvent>
   </PropertyGroup>
 </Project>

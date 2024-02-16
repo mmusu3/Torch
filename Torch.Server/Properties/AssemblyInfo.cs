@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 [assembly: AssemblyTitle("Torch Server")]
 [assembly: AssemblyDescription("")]
@@ -14,4 +15,8 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("Debug")]
 #else
 [assembly: AssemblyConfiguration("Release")]
+#endif
+
+#if !NETFRAMEWORK
+[assembly: SupportedOSPlatform("windows")]
 #endif

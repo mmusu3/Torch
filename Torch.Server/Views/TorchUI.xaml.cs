@@ -2,22 +2,16 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Threading;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using NLog;
 using NLog.Config;
 using NLog.Targets.Wrappers;
-using Sandbox;
 using Torch.API;
 using Torch.API.Managers;
 using Torch.Patches;
@@ -39,6 +33,7 @@ namespace Torch.Server
         private bool _autoscrollLog = true;
         private bool _needScroll;
         private System.Windows.Forms.Timer _scrollTimer;
+
         public TorchUI(TorchServer server)
         {
             WindowStartupLocation = WindowStartupLocation.Manual;
@@ -76,9 +71,9 @@ namespace Torch.Server
 
             Themes.uiSource = this;
             Themes.SetConfig(_config);
-            Title = $"{_config.InstanceName} - Torch {server.TorchVersion}, SE {server.GameVersion}";
+            Title = $"{_config.InstanceName} - Torch {server.TorchVersion} {RuntimeInformation.FrameworkDescription}, SE {server.GameVersion}";
             Instance = this;
-            
+
             Loaded += TorchUI_Loaded;
         }
 
@@ -86,7 +81,7 @@ namespace Torch.Server
         {
             var scrollViewer = FindDescendant<ScrollViewer>(ConsoleText);
             scrollViewer.ScrollChanged += ConsoleText_OnScrollChanged;
-            
+
             _scrollTimer = new System.Windows.Forms.Timer();
             _scrollTimer.Tick += ScrollIfNeed;
             _scrollTimer.Interval = 120;
@@ -101,7 +96,7 @@ namespace Torch.Server
                 _needScroll = false;
             }
         }
-        
+
         private void AttachConsole()
         {
             const string target = "wpf";
@@ -116,39 +111,44 @@ namespace Torch.Server
             ConsoleText.TextChanged += ConsoleText_OnTextChanged;
         }
 
-        public static T FindDescendant<T>(DependencyObject obj) where T : DependencyObject
+        public static T FindDescendant<T>(DependencyObject obj)
+            where T : DependencyObject
         {
-            if (obj == null) return default(T);
+            if (obj == null)
+                return default;
+
             int numberChildren = VisualTreeHelper.GetChildrenCount(obj);
-            if (numberChildren == 0) return default(T);
+
+            if (numberChildren == 0)
+                return default;
 
             for (int i = 0; i < numberChildren; i++)
             {
                 DependencyObject child = VisualTreeHelper.GetChild(obj, i);
-                if (child is T)
-                {
-                    return (T)child;
-                }
+
+                if (child is T t)
+                    return t;
             }
 
             for (int i = 0; i < numberChildren; i++)
             {
                 DependencyObject child = VisualTreeHelper.GetChild(obj, i);
                 var potentialMatch = FindDescendant<T>(child);
-                if (potentialMatch != default(T))
+
+                if (potentialMatch != default)
                 {
                     return potentialMatch;
                 }
             }
 
-            return default(T);
+            return default;
         }
 
         private void ConsoleText_OnTextChanged(object sender, TextChangedEventArgs args)
         {
             _needScroll = true;
         }
-        
+
         private void ConsoleText_OnScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             var scrollViewer = (ScrollViewer) sender;
@@ -201,7 +201,7 @@ namespace Torch.Server
                 _server.Stop();
 
             _scrollTimer.Stop();
-            
+
             Process.GetCurrentProcess().Kill();
         }
 

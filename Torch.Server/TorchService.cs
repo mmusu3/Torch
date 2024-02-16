@@ -1,21 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
+﻿#if NETFRAMEWORK
+using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.ServiceProcess;
 using System.Threading;
+using System.Threading.Tasks;
 using NLog;
-using Torch.API;
 
 namespace Torch.Server
 {
     class TorchService : ServiceBase
     {
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+
         public const string Name = "Torch (SEDS)";
+
         private Initializer _initializer;
         private string[] _args;
 
@@ -51,3 +50,4 @@ namespace Torch.Server
         }
     }
 }
+#endif

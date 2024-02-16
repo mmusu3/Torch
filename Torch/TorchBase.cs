@@ -2,30 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Runtime;
 using System.Runtime.CompilerServices;
-using System.Security.Principal;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NLog;
-using ProtoBuf.Meta;
 using Sandbox;
-using Sandbox.Engine.Multiplayer;
-using Sandbox.Engine.Networking;
-using Sandbox.Engine.Platform.VideoMode;
-using Sandbox.Engine.Utils;
 using Sandbox.Game;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.Screens.Helpers;
-using Sandbox.Game.World;
-using Sandbox.Graphics.GUI;
-using Sandbox.ModAPI;
 using SpaceEngineers.Game;
-using SpaceEngineers.Game.GUI;
 using Torch.API;
 using Torch.API.Managers;
 using Torch.API.ModAPI;
@@ -36,25 +22,11 @@ using Torch.Managers;
 using Torch.Managers.ChatManager;
 using Torch.Managers.PatchManager;
 using Torch.Patches;
-using Torch.Utils;
 using Torch.Session;
-using VRage;
-using VRage.Collections;
-using VRage.FileSystem;
-using VRage.Game;
-using VRage.Game.Common;
-using VRage.Game.Components;
-using VRage.Game.ObjectBuilder;
-using VRage.Game.SessionComponents;
-using VRage.GameServices;
-using VRage.Library;
-using VRage.ObjectBuilders;
+using Torch.Utils;
 using VRage.Platform.Windows;
 using VRage.Plugins;
-using VRage.Scripting;
-using VRage.Steam;
 using VRage.Utils;
-using VRageRender;
 
 namespace Torch
 {
@@ -68,6 +40,7 @@ namespace Torch
             MyVRageWindows.Init("SpaceEngineersDedicated", MySandboxGame.Log, null, false);
             ReflectedManager.Process(typeof(TorchBase).Assembly);
             ReflectedManager.Process(typeof(ITorchBase).Assembly);
+            PatchManager.AddPatchShim(typeof(CustomRootWriterPatch));
             PatchManager.AddPatchShim(typeof(GameStatePatchShim));
             PatchManager.AddPatchShim(typeof(GameAnalyticsPatch));
             PatchManager.AddPatchShim(typeof(KeenLogPatch));
@@ -129,7 +102,7 @@ namespace Torch
         private bool _init;
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <exception cref="InvalidOperationException">Thrown if a TorchBase instance already exists.</exception>
         protected TorchBase(ITorchConfig config)
@@ -144,7 +117,7 @@ namespace Torch
             var versionString = Assembly.GetEntryAssembly()
                                       .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
                                       .InformationalVersion;
-            
+
             if (!InformationalVersion.TryParse(versionString, out InformationalVersion version))
                 throw new TypeLoadException("Unable to parse the Torch version from the assembly.");
 
@@ -296,7 +269,7 @@ namespace Torch
 
 #endregion
 
-#region Torch Init/Destroy
+        #region Torch Init/Destroy
 
         protected abstract uint SteamAppId { get; }
         protected abstract string SteamAppName { get; }
@@ -360,7 +333,7 @@ namespace Torch
             Game = null;
         }
 
-#endregion
+        #endregion
 
         protected VRageGame Game { get; private set; }
 
@@ -371,8 +344,8 @@ namespace Torch
         {
         }
 
-
         private int _inProgressSaves = 0;
+
         /// <inheritdoc/>
         public virtual Task<GameSaveResult> Save(int timeoutMs = -1, bool exclusive = false)
         {
@@ -384,7 +357,7 @@ namespace Torch
                     return null;
                 }
             }
-            
+
             Interlocked.Increment(ref _inProgressSaves);
             return TorchAsyncSaving.Save(this, timeoutMs).ContinueWith((task, torchO) =>
             {
@@ -403,7 +376,7 @@ namespace Torch
             }, this, TaskContinuationOptions.RunContinuationsAsynchronously);
         }
 
-        /// <inheritdoc/> 
+        /// <inheritdoc/>
         public virtual void Start()
         {
             Game.SignalStart();

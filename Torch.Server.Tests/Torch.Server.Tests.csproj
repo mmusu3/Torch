@@ -1,20 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
     <OutputType>Library</OutputType>
+    <TargetFrameworks>net48;net8-windows</TargetFrameworks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <LangVersion>latest</LangVersion>
     <Platforms>x64</Platforms>
     <NoWarn>1591,0649</NoWarn>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <OutputPath>..\bin-test\x64\Debug\</OutputPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <OutputPath>..\bin-test\x64\Release\</OutputPath>
-    <DocumentationFile>..\bin-test\x64\Release\Torch.Server.Tests.xml</DocumentationFile>
+    <OutputPath>..\bin-test\$(Platform)_$(Configuration)\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>

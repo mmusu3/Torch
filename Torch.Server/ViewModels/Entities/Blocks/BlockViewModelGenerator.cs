@@ -1,18 +1,13 @@
-﻿using System;
+﻿#if NETFRAMEWORK
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.CodeAnalysis;
+using NLog;
 using Sandbox.Game.Entities.Cube;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using NLog;
-using Sandbox.ModAPI.Interfaces.Terminal;
 
 namespace Torch.Server.ViewModels.Blocks
 {
@@ -36,10 +31,9 @@ namespace Torch.Server.ViewModels.Blocks
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic))
             {
                 foreach (var type in assembly.ExportedTypes.Where(t => t.IsSubclassOf(typeof(MyTerminalBlock))))
-                {
                     GenerateModel(type);
-                }
             }
+
             _ab.Save("Generated.dll", PortableExecutableKinds.ILOnly, ImageFileMachine.AMD64);
         }
 
@@ -130,3 +124,4 @@ namespace Torch.Server.ViewModels.Blocks
         }
     }
 }
+#endif
