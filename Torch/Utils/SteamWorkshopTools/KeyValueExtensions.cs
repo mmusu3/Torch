@@ -1,48 +1,84 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Reflection;
-using System.Linq;
-using NLog;
+﻿#nullable enable
+
 using SteamKit2;
 
-namespace Torch.Utils.SteamWorkshopTools
+namespace Torch.Utils.SteamWorkshopTools;
+
+public static class KeyValueExtensions
 {
-    public static class KeyValueExtensions
+    public static KeyValue? Find(this KeyValue keyValue, string key)
     {
-        private static Logger Log = LogManager.GetLogger("SteamWorkshopService");
+        return keyValue.Children?.Find((KeyValue item) => item.Name == key);
+    }
 
-        public static T GetValueOrDefault<T>(this KeyValue kv, string key)
-        {
-            kv.TryGetValueOrDefault<T>(key, out T result);
-            return result;
-        }
-        public static bool TryGetValueOrDefault<T>(this KeyValue kv, string key, out T typedValue)
-        {
-            var match = kv.Children?.Find((KeyValue item) => item.Name == key);
-            object result = default(T);
-            if (match == null)
-            {
-                typedValue = (T) result;
-                return false;
-            }
+    public static bool TryGetInt(this KeyValue keyValue, string key, out int value)
+    {
+        value = 0;
 
-            var value = match.Value ?? "";
+        var kv = Find(keyValue, key);
 
-            try
-            {
-                var converter = TypeDescriptor.GetConverter(typeof(T));
-                result = converter.ConvertFromString(value);
-                typedValue = (T)result;
-                return true;
-            }
-            catch (NotSupportedException)
-            {
-                throw new Exception($"Unexpected Type '{typeof(T)}'!");
-            }
-        }
+        if (kv == null)
+            return false;
+
+        if (int.TryParse(kv.Value, out value))
+            return true;
+
+        return false;
+    }
+
+    public static int GetIntOrDefault(this KeyValue keyValue, string key)
+    {
+        return TryGetInt(keyValue, key, out int value) ? value : default;
+    }
+
+    public static uint GetUIntOrDefault(this KeyValue keyValue, string key)
+    {
+        var kv = Find(keyValue, key);
+
+        if (kv == null)
+            return default;
+
+        _ = uint.TryParse(kv.Value, out uint value);
+        return value;
+    }
+
+    public static bool TryGetLong(this KeyValue keyValue, string key, out long value)
+    {
+        value = 0;
+
+        var kv = Find(keyValue, key);
+
+        if (kv == null)
+            return false;
+
+        if (long.TryParse(kv.Value, out value))
+            return true;
+
+        return false;
+    }
+
+    public static long GetLongOrDefault(this KeyValue keyValue, string key)
+    {
+        return TryGetLong(keyValue, key, out long value) ? value : default;
+    }
+
+    public static bool TryGetULong(this KeyValue keyValue, string key, out ulong value)
+    {
+        value = 0;
+
+        var kv = Find(keyValue, key);
+
+        if (kv == null)
+            return false;
+
+        if (ulong.TryParse(kv.Value, out value))
+            return true;
+
+        return false;
+    }
+
+    public static ulong GetULongOrDefault(this KeyValue keyValue, string key)
+    {
+        return TryGetULong(keyValue, key, out ulong value) ? value : default;
     }
 }
