@@ -68,7 +68,7 @@ namespace Torch.Tests
         {
             var ctx = _patchContext.AcquireContext();
             ctx.GetPattern(TryCatchTest._target).Transpilers.Add(TryCatchTest._removeThrowTranspiler);
-            ctx.GetPattern(TryCatchTest._target).DumpTarget = @"C:\tmp\dump.txt";
+            ctx.GetPattern(TryCatchTest._target).DumpTarget = Path.Combine(Path.GetTempPath(), "dump.txt");
             ctx.GetPattern(TryCatchTest._target).DumpMode = MethodRewritePattern.PrintModeEnum.Original | MethodRewritePattern.PrintModeEnum.Patched;
             _patchContext.Commit();
             Assert.True(TryCatchTest.Target());
@@ -163,15 +163,15 @@ namespace Torch.Tests
 
             var ctx = _patchContext.AcquireContext();
             ctx.GetPattern(method).Transpilers.Add(_nopTranspiler);
-            ctx.GetPattern(method).DumpTarget = @"C:\tmp\dump.txt";
+            ctx.GetPattern(method).DumpTarget = Path.Combine(Path.GetTempPath(), "dump.txt");
             ctx.GetPattern(method).DumpMode = MethodRewritePattern.PrintModeEnum.Original | MethodRewritePattern.PrintModeEnum.Patched;
             _patchContext.Commit();
-            
+
             Assert.Equal("TEST", TestAsyncMethod().Result);
             _patchContext.FreeContext(ctx);
             _patchContext.Commit();
         }
-        
+
         private async Task<string> TestAsyncMethod()
         {
             var first = await Task.Run(() => "TE");
