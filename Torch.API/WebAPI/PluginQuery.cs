@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using NLog;
@@ -13,13 +11,12 @@ namespace Torch.API.WebAPI
     public class PluginQuery
     {
 #if DEBUG
-        private const string ALL_QUERY = "https://torchapi.com/api/plugins?includeArchived=true";
+        private const string ALL_QUERY = "https://torchapi.com/api/plugins/?includeArchived=true";
 #else
         private const string ALL_QUERY = "https://torchapi.com/api/plugins";
 #endif
-
-
         private const string PLUGIN_QUERY = "https://torchapi.com/api/plugins/search/{0}";
+
         private readonly HttpClient _client;
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
@@ -34,6 +31,7 @@ namespace Torch.API.WebAPI
         public async Task<PluginResponse> QueryAll()
         {
             var h = await _client.GetAsync(ALL_QUERY);
+
             if (!h.IsSuccessStatusCode)
             {
                 Log.Error($"Plugin query returned response {h.StatusCode}");
