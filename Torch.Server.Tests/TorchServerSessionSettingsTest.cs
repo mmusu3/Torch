@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using Torch.Server.ViewModels;
 using VRage.Game;
 using Xunit;
-using System.ComponentModel.DataAnnotations;
 
 namespace Torch.Server.Tests
 {
@@ -28,7 +26,9 @@ namespace Torch.Server.Tests
                 return;
 
             var match = ViewModelProperties.FirstOrDefault(p => p.Name.Equals(modelField.Name, StringComparison.InvariantCultureIgnoreCase));
-            Assert.NotNull(match);
+
+            if (match == null)
+                Assert.Fail($"Field '{modelField.Name}' was not present in '{nameof(SessionSettingsViewModel)}'.");
         }
     }
 }
