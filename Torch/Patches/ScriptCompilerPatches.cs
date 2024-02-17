@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -14,7 +15,8 @@ namespace Torch.Patches;
 [PatchShim]
 public static class MyScriptCompilerPatch
 {
-    static bool additionalReferencesAdded;
+    internal static bool Initialized => initialized;
+    static bool initialized;
 
     public static void Patch(PatchContext ctx)
     {
@@ -24,16 +26,55 @@ public static class MyScriptCompilerPatch
         ctx.GetPattern(source).Prefixes.Add(replacement);
     }
 
-    static bool Prefix(MyScriptCompiler __instance)
+    // In .NET Framework when running under a debugger, this will
+    // not catch the first call to AddReferencedAssemblies().
+    // It is inside the MyScriptCompiler constructor which is
+    // invoked by the static constructor which is invoked by the
+    // method patcher. Therefore it needs to recreate the whitelist
+    // and analyzers on the next call to AddReferencedAssemblies()
+    // which is in MyVRageScriptingInternal.Initialize()
+    //
+    static bool Prefix(MyScriptCompiler __instance
+#if NETFRAMEWORK
+        , HashSet<string> __field_m_assemblyLocations,
+        List<Microsoft.CodeAnalysis.MetadataReference> __field_m_metadataReferences,
+        ref MyScriptWhitelist __field_m_whitelist,
+        ref object __field_m_ingameWhitelistDiagnosticAnalyzer,
+        ref object __field_m_modApiWhitelistDiagnosticAnalyzer
+#endif
+        )
     {
-        if (additionalReferencesAdded)
+        if (initialized)
             return true;
 
-        additionalReferencesAdded = true;
+        initialized = true;
+
+#if NETFRAMEWORK
+        __field_m_assemblyLocations.Clear();
+        __field_m_metadataReferences.Clear();
+#endif
 
         __instance.AddReferencedAssemblies("./CompilerRefAssemblies/netstandard.dll");
 
+#if !NETFRAMEWORK
         return false;
+#else
+        var ctor = typeof(MyScriptCompiler).GetConstructor(BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+        var sFrame = new StackFrame(2);
+        var previousMethod = sFrame.GetMethod();
+
+        if (previousMethod == ctor)
+            return false;
+
+        var whitelist = new MyScriptWhitelist(__instance);
+        __field_m_whitelist = whitelist;
+
+        var analyzerType = typeof(MyScriptCompiler).Assembly.GetType("VRage.Scripting.Analyzers.WhitelistDiagnosticAnalyzer");
+        __field_m_ingameWhitelistDiagnosticAnalyzer = Activator.CreateInstance(analyzerType, [ whitelist, MyWhitelistTarget.Ingame ]);
+        __field_m_modApiWhitelistDiagnosticAnalyzer = Activator.CreateInstance(analyzerType, [ whitelist, MyWhitelistTarget.ModApi ]);
+
+        return true;
+#endif
     }
 }
 
@@ -51,6 +92,9 @@ public static class MyScriptWhitelistPatch
     static bool Prefix(MyScriptWhitelist __instance, MyScriptCompiler scriptCompiler,
         ref MyScriptCompiler __field_m_scriptCompiler, ref Dictionary<string, MyWhitelistTarget> __field_m_whitelist, ref HashSet<string> __field_m_ingameBlacklist)
     {
+        if (!MyScriptCompilerPatch.Initialized)
+            return true;
+
         __field_m_scriptCompiler = scriptCompiler;
         __field_m_whitelist = new Dictionary<string, MyWhitelistTarget>();
         __field_m_ingameBlacklist = new HashSet<string>();
@@ -166,18 +210,21 @@ public static class MyScriptWhitelistBatchPatches
     static ConditionalWeakTable<object, Microsoft.CodeAnalysis.CSharp.CSharpCompilation> compilations = new();
 
     [PatchShim]
-    public static class Patch1
+    public static class ConstructorPatch
     {
         public static void Patch(PatchContext ctx)
         {
             var source = batchType.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null, [ typeof(MyScriptWhitelist) ], null);
-            var replacement = typeof(Patch1).GetMethod(nameof(Prefix), BindingFlags.Static | BindingFlags.NonPublic);
+            var replacement = typeof(ConstructorPatch).GetMethod(nameof(Prefix), BindingFlags.Static | BindingFlags.NonPublic);
 
             ctx.GetPattern(source).Prefixes.Add(replacement);
         }
 
         static bool Prefix(object __instance, MyScriptWhitelist whitelist)
         {
+            if (!MyScriptCompilerPatch.Initialized)
+                return true;
+
             batchType.GetProperty("Whitelist", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(__instance, whitelist);
 
             var compilation = (Microsoft.CodeAnalysis.CSharp.CSharpCompilation)typeof(MyScriptWhitelist)
@@ -195,12 +242,12 @@ public static class MyScriptWhitelistBatchPatches
     }
 
     [PatchShim]
-    public static class Patch2
+    public static class ResolveTypeSymbolPatch
     {
         public static void Patch(PatchContext ctx)
         {
             var source = batchType.GetMethod("ResolveTypeSymbol", BindingFlags.Instance | BindingFlags.NonPublic, null, [ typeof(Type) ], null);
-            var replacement = typeof(Patch2).GetMethod(nameof(Prefix), BindingFlags.Static | BindingFlags.NonPublic);
+            var replacement = typeof(ResolveTypeSymbolPatch).GetMethod(nameof(Prefix), BindingFlags.Static | BindingFlags.NonPublic);
 
             ctx.GetPattern(source).Prefixes.Add(replacement);
         }
