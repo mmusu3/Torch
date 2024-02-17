@@ -1,21 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using NLog;
 using Torch.API;
 using Torch.API.Managers;
 using Torch.Managers;
@@ -42,14 +28,14 @@ namespace Torch.Server.Views
             if (propertyChangedEventArgs.PropertyName == nameof(PluginManagerViewModel.SelectedPlugin))
             {
                 var plugin = ((PluginManagerViewModel)DataContext).SelectedPlugin;
-               
+
                 if (plugin.Control is PropertyGrid || !plugin.Control.GetScrollContainer())
                     PScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
                 else
                     PScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
             }
         }
-        
+
         public void BindServer(ITorchServer server)
         {
             _server = server;
@@ -76,7 +62,7 @@ namespace Torch.Server.Views
         private void OpenFolder_OnClick(object sender, RoutedEventArgs e)
         {
             if (_plugins?.PluginDir != null)
-                Process.Start(_plugins.PluginDir);
+                Process.Start(new ProcessStartInfo(_plugins.PluginDir) { UseShellExecute = true });
         }
 
         private void BrowsPlugins_OnClick(object sender, RoutedEventArgs e)
