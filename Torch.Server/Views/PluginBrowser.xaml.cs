@@ -52,25 +52,34 @@ namespace Torch.Server.Views
             var installedPlugins = pluginManager.Plugins;
             BindingOperations.EnableCollectionSynchronization(Plugins, _syncLock);
 
-            Task.Run(async () =>
+            Task.Run(LoadPluginListAsync);
+
+            MarkdownFlow.CommandBindings.Add(new CommandBinding(NavigationCommands.GoToPage, (sender, e) => OpenUri((string)e.Parameter)));
+
+            async Task LoadPluginListAsync()
             {
                 var res = await PluginQuery.Instance.QueryAll();
+
                 if (res == null)
+                {
+                    CurrentDescription = "Failed to fetch plugin list.";
                     return;
+                }
+
                 foreach (var item in res.Plugins.OrderBy(i => i.Name))
                 {
                     lock (_syncLock)
                     {
                         if (installedPlugins.Keys.Contains(Guid.Parse(item.ID)))
                             item.Installed = true;
+
                         Plugins.Add(item);
                         PluginsSource.Add(item);
                     }
                 }
-                CurrentDescription = "Please select a plugin...";
-            });
 
-            MarkdownFlow.CommandBindings.Add(new CommandBinding(NavigationCommands.GoToPage, (sender, e) => OpenUri((string)e.Parameter)));
+                CurrentDescription = "Please select a plugin...";
+            }
         }
 
         public static bool IsValidUri(string uri)
