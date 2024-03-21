@@ -359,10 +359,14 @@ namespace Torch.Managers
             }
         }
 
+#nullable enable
+
         private void LoadPlugin(PluginItem item)
         {
             var assemblies = new List<Assembly>();
             //var loaded = AppDomain.CurrentDomain.GetAssemblies();
+
+            var assemblyFiles = new Dictionary<string, (byte[], byte[]?)>();
 
             if (item.IsZip)
             {
@@ -379,9 +383,11 @@ namespace Torch.Managers
                         using (var stream = entry.Open())
                         {
                             var data = stream.ReadToEnd((int)entry.Length);
-                            byte[] symbol = null;
+                            byte[]? symbol = null;
+
                             var symbolEntryName = entry.FullName.Substring(0, entry.FullName.Length - "dll".Length) + "pdb";
                             var symbolEntry = zipFile.GetEntry(symbolEntryName);
+
                             if (symbolEntry != null)
                             {
                                 try
@@ -395,8 +401,22 @@ namespace Torch.Managers
                                 }
                             }
 
-                            assemblies.Add(symbol != null ? Assembly.Load(data, symbol) : Assembly.Load(data));
+                            assemblyFiles.Add(Path.GetFileNameWithoutExtension(entry.Name), (data, symbol));
                         }
+                    }
+
+                    foreach (var ad in assemblyFiles)
+                    {
+                        var data = ad.Value.Item1;
+                        var symbol = ad.Value.Item2;
+
+                        ModifyAssemblyData(ref data, ref symbol, assemblyFiles);
+
+                        var assembly = symbol != null
+                            ? Assembly.Load(data, symbol)
+                            : Assembly.Load(data);
+
+                        assemblies.Add(assembly);
                     }
                 }
             }
@@ -417,9 +437,11 @@ namespace Torch.Managers
                     using (var stream = File.OpenRead(file))
                     {
                         var data = stream.ReadToEnd();
-                        byte[] symbol = null;
+                        byte[]? symbol = null;
+
                         var symbolPath = Path.Combine(Path.GetDirectoryName(file) ?? ".",
                             Path.GetFileNameWithoutExtension(file) + ".pdb");
+
                         if (File.Exists(symbolPath))
                         {
                             try
@@ -432,18 +454,142 @@ namespace Torch.Managers
                                 _log.Warn(e, $"Failed to read debugging symbols from {symbolPath}");
                             }
                         }
-                        var assembly = symbol != null
-                            ? Assembly.Load(data, symbol)
-                            : Assembly.Load(data);
 
-                        assemblies.Add(assembly);
+                        assemblyFiles.Add(Path.GetFileNameWithoutExtension(file), (data, symbol));
                     }
+                }
+
+                foreach (var ad in assemblyFiles)
+                {
+                    var data = ad.Value.Item1;
+                    var symbol = ad.Value.Item2;
+
+                    ModifyAssemblyData(ref data, ref symbol, assemblyFiles);
+
+                    var assembly = symbol != null
+                        ? Assembly.Load(data, symbol)
+                        : Assembly.Load(data);
+
+                    assemblies.Add(assembly);
                 }
             }
 
             RegisterAllAssemblies(assemblies);
             InstantiatePlugin(item.Manifest, assemblies);
         }
+
+#if NET8_0_OR_GREATER
+        class PluginCecilAssemblyResolver : Mono.Cecil.BaseAssemblyResolver
+        {
+            readonly Dictionary<string, Mono.Cecil.AssemblyDefinition> cache;
+            readonly Dictionary<string, (byte[], byte[]?)> assemblyFiles;
+            readonly Mono.Cecil.ReaderParameters readerParameters;
+
+            public PluginCecilAssemblyResolver(Dictionary<string, (byte[], byte[]?)> assemblyFiles)
+            {
+                cache = new Dictionary<string, Mono.Cecil.AssemblyDefinition>(StringComparer.Ordinal);
+                this.assemblyFiles = assemblyFiles;
+                readerParameters = new Mono.Cecil.ReaderParameters { InMemory = true, AssemblyResolver = this };
+            }
+
+            public override Mono.Cecil.AssemblyDefinition Resolve(Mono.Cecil.AssemblyNameReference name)
+            {
+                Mono.Cecil.AssemblyDefinition? assembly;
+
+                if (cache.TryGetValue(name.FullName, out assembly))
+                    return assembly;
+
+                if (assemblyFiles.TryGetValue(name.Name, out var assemData))
+                    assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(new MemoryStream(assemData.Item1), readerParameters);
+                else
+                    assembly = base.Resolve(name);
+
+                cache[name.FullName] = assembly;
+
+                return assembly;
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                foreach (var assembly in cache.Values)
+                    assembly.Dispose();
+
+                cache.Clear();
+
+                base.Dispose(disposing);
+            }
+        }
+#endif
+
+        static void ModifyAssemblyData(ref byte[] data, ref byte[]? symbolData, Dictionary<string, (byte[], byte[]?)> assemblyFiles)
+        {
+#if NET8_0_OR_GREATER
+            // TODO: PDB?
+            try
+            {
+                using var assemResolver = new PluginCecilAssemblyResolver(assemblyFiles);
+                assemResolver.AddSearchDirectory("DedicatedServer64");
+
+                var readerParams = new Mono.Cecil.ReaderParameters() {
+                    InMemory = true,
+                    AssemblyResolver = assemResolver
+                };
+
+                using var assemblyDef = Mono.Cecil.AssemblyDefinition.ReadAssembly(new MemoryStream(data), readerParams);
+                bool assemblyModified = false;
+
+                foreach (var typeDef in assemblyDef.MainModule.Types)
+                {
+                    foreach (var fieldDef in typeDef.Fields)
+                    {
+                        if (!fieldDef.IsStatic || !fieldDef.IsInitOnly)
+                            continue;
+
+                        bool hasReflectedMemberAttrib = false;
+
+                        foreach (var attrib in fieldDef.CustomAttributes)
+                        {
+                            switch (attrib.AttributeType.FullName)
+                            {
+                            case "Torch.Utils.ReflectedMethodAttribute":
+                            case "Torch.Utils.ReflectedStaticMethodAttribute":
+                            case "Torch.Utils.ReflectedGetterAttribute":
+                            case "Torch.Utils.ReflectedSetterAttribute":
+                            case "Torch.Utils.ReflectedFieldInfoAttribute":
+                            case "Torch.Utils.ReflectedPropertyInfoAttribute":
+                            case "Torch.Utils.ReflectedMethodInfoAttribute":
+                            case "Torch.Utils.ReflectedEventReplaceAttribute":
+                                hasReflectedMemberAttrib = true;
+                                break;
+                            }
+                        }
+
+                        if (hasReflectedMemberAttrib)
+                        {
+                            // Cannot set readonly static fields via reflection in newer .net runtimes.
+                            // Change to non-readonly.
+                            fieldDef.IsInitOnly = false;
+                            assemblyModified = true;
+                        }
+                    }
+                }
+
+                if (!assemblyModified)
+                    return;
+
+                using (var stream = new MemoryStream(data.Length))
+                {
+                    assemblyDef.Write(stream);
+                    data = stream.ToArray();
+                }
+            }
+            catch (Exception)
+            {
+            }
+#endif
+        }
+
+#nullable restore
 
         private void RegisterAllAssemblies(IReadOnlyCollection<Assembly> assemblies)
         {
