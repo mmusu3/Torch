@@ -2,27 +2,16 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using NLog;
-using Sandbox.Definitions;
 using Sandbox.Engine.Networking;
 using Sandbox.Game.World;
 using Torch.Server.Managers;
 using Torch.Server.ViewModels;
-using Torch.Utils;
 using VRage;
-using VRage.Dedicated;
 using VRage.FileSystem;
 using VRage.Game;
-using VRage.Game.Localization;
 using VRage.Utils;
 
 namespace Torch.Server
@@ -37,20 +26,18 @@ namespace Torch.Server
         private List<string> _worldNames = new List<string>();
         private PremadeCheckpointItem _currentItem;
 
-        [ReflectedStaticMethod(Type = typeof(ConfigForm), Name = "LoadLocalization")]
-        private static Action _loadLocalization;
-
         public WorldGeneratorDialog(InstanceManager instanceManager)
         {
             _instanceManager = instanceManager;
+
             InitializeComponent();
-            _loadLocalization();
+            LoadLocalization();
 
             string worldsDir = Path.Combine(MyFileSystem.ContentPath, "CustomWorlds");
-            var result = new List<Tuple<string,MyWorldInfo>>();
-            
+            var result = new List<Tuple<string, MyWorldInfo>>();
+
             GetWorldInfo(worldsDir, result);
-            
+
             foreach (var tup in result)
             {
                 string directory = tup.Item1;
@@ -61,9 +48,10 @@ namespace Torch.Server
                 checkpoint.OnlineMode = MyOnlineModeEnum.PUBLIC;
                 // Keen, why do random checkpoints point to the SBC and not the folder!
                 directory = directory.Replace("Sandbox.sbc", "");
-                _checkpoints.Add(new PremadeCheckpointItem
-                {
-                    Name = localizedName, Icon = Path.Combine(directory, "thumb.jpg"), Path = directory,
+                _checkpoints.Add(new PremadeCheckpointItem {
+                    Name = localizedName,
+                    Icon = Path.Combine(directory, "thumb.jpg"),
+                    Path = directory,
                     Checkpoint = checkpoint
                 });
             }
@@ -75,11 +63,23 @@ namespace Torch.Server
 
             PremadeCheckpoints.ItemsSource = _worldNames;
         }
-        
+
+        private static void LoadLocalization()
+        {
+            string localizationDir = Path.Combine(new FileInfo(MyFileSystem.ExePath).DirectoryName, "Content\\Data\\Localization");
+            var supportedLanguages = new HashSet<MyLanguagesEnum>();
+
+            MyTexts.LoadSupportedLanguages(localizationDir, supportedLanguages);
+            MyTexts.Languages.TryGetValue(MyLanguagesEnum.English, out var lang);
+
+            if (lang != null)
+                MyTexts.LoadTexts(localizationDir, lang.CultureName, lang.SubcultureName);
+        }
+
         private void ButtonBase_OnClick(object sender, RoutedEventArgs e)
         {
             string worldName = string.IsNullOrEmpty(WorldName.Text) ? _currentItem.Name : WorldName.Text;
-            
+
             var worldPath = Path.Combine(TorchBase.Instance.Config.InstancePath, "Saves", worldName);
             var checkpoint = _currentItem.Checkpoint;
             if (Directory.Exists(worldPath))
@@ -114,20 +114,20 @@ namespace Torch.Server
             SettingsView.DataContext = new SessionSettingsViewModel(_currentItem.Checkpoint.Settings);
             CheckpointImage.Source = new BitmapImage(new Uri(_currentItem.Icon));
         }
-        
-         private void GetWorldInfo(string savesPath, List<Tuple<string, MyWorldInfo>> result)
+
+        private void GetWorldInfo(string savesPath, List<Tuple<string, MyWorldInfo>> result)
         {
-            foreach (var saveDir in Directory.GetDirectories(savesPath, "*", SearchOption.TopDirectoryOnly))            
+            foreach (var saveDir in Directory.GetDirectories(savesPath, "*", SearchOption.TopDirectoryOnly))
             {
                 bool isCompatible;
                 string platformSessionPath = null;
-                
+
                 platformSessionPath = MyLocalCache.GetSessionPathFromScenario(saveDir, false, out isCompatible);
                 if (platformSessionPath != null && isCompatible)
                 {
                     AddWorldInfo(result, platformSessionPath, saveDir, " [PC]");
                 }
-                
+
                 string xboxPlatformSessionPath = MyLocalCache.GetSessionPathFromScenario(saveDir, true, out isCompatible);
                 if (xboxPlatformSessionPath != null && isCompatible)
                 {
@@ -140,7 +140,7 @@ namespace Torch.Server
                 }
             }
         }
-        
+
         private static void AddWorldInfo(List<Tuple<string, MyWorldInfo>> result, string sessionDir, string saveDir, string namePostfix)
         {
             MyWorldInfo worldInfo = null;
@@ -157,8 +157,7 @@ namespace Torch.Server
                 }
                 else
                 {
-                    worldInfo = new MyWorldInfo
-                    {
+                    worldInfo = new MyWorldInfo {
                         SessionName = worldConfiguration.SessionName,
                         LastSaveTime = worldConfiguration.LastSaveTime.Value
                     };
