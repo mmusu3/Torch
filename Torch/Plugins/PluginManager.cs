@@ -410,7 +410,7 @@ namespace Torch.Managers
                         var data = ad.Value.Item1;
                         var symbol = ad.Value.Item2;
 
-                        ModifyAssemblyData(ref data, ref symbol, assemblyFiles);
+                        ModifyAssemblyData(ref data, ref symbol, assemblyFiles, ad.Key);
 
                         var assembly = symbol != null
                             ? Assembly.Load(data, symbol)
@@ -464,7 +464,7 @@ namespace Torch.Managers
                     var data = ad.Value.Item1;
                     var symbol = ad.Value.Item2;
 
-                    ModifyAssemblyData(ref data, ref symbol, assemblyFiles);
+                    ModifyAssemblyData(ref data, ref symbol, assemblyFiles, ad.Key);
 
                     var assembly = symbol != null
                         ? Assembly.Load(data, symbol)
@@ -521,7 +521,7 @@ namespace Torch.Managers
         }
 #endif
 
-        static void ModifyAssemblyData(ref byte[] data, ref byte[]? symbolData, Dictionary<string, (byte[], byte[]?)> assemblyFiles)
+        static void ModifyAssemblyData(ref byte[] data, ref byte[]? symbolData, Dictionary<string, (byte[], byte[]?)> assemblyFiles, string assemblyName)
         {
 #if NET8_0_OR_GREATER
             // TODO: PDB?
@@ -583,8 +583,9 @@ namespace Torch.Managers
                     data = stream.ToArray();
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _log.Error(ex, $"Failed to pre-patch plugin assembly '{assemblyName}'.");
             }
 #endif
         }
