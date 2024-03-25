@@ -40,19 +40,23 @@ namespace Torch.Server
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             _config = (TorchConfig)server.Config;
-            Width = _config.WindowWidth;
-            Height = _config.WindowHeight;
             _server = server;
             //TODO: data binding for whole server
             DataContext = server;
             InitializeComponent();
 
+            //Width = _config.WindowWidth;
+            //Height = _config.WindowHeight;
+            //Left = _config.WindowPosition.X;
+            //Top = _config.WindowPosition.Y;
+
             var config = LogManager.Configuration;
-            var customTarget = new NlogCustomTarget()
-            {
+            var customTarget = new NlogCustomTarget() {
                 Name = "NlogCustomTarget"
             };
+
             config.AddTarget(customTarget);
+
             var rule = new LoggingRule("*", LogLevel.Warn, customTarget); // Adjust the log level as needed
             config.LoggingRules.Add(rule);
 
@@ -60,11 +64,6 @@ namespace Torch.Server
             LogManager.Configuration = config;
 
             AttachConsole();
-
-            //Left = _config.WindowPosition.X;
-            //Top = _config.WindowPosition.Y;
-            //Width = _config.WindowSize.X;
-            //Height = _config.WindowSize.Y;
 
             Chat.BindServer(server);
             PlayerList.BindServer(server);
