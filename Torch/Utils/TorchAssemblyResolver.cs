@@ -92,14 +92,13 @@ public class TorchAssemblyResolver : IDisposable
                         RemoveVRageDedicatedUnsupportedTypes(ref data);
                         asm = Assembly.Load(data);
                     }
-                    else if (assemblyName == "Steamworks.NET")
-                    {
-                        var data = File.ReadAllBytes(assemblyPath);
-                        FixSteamworksNETTypes(ref data);
-                        asm = Assembly.Load(data);
-                    }
                     else
 #endif
+                    if (assemblyName == "Steamworks.NET")
+                    {
+                        asm = FixSteamworksNETTypes(assemblyPath);
+                    }
+                    else
                     {
                         asm = Assembly.LoadFrom(assemblyPath);
                     }
@@ -164,9 +163,12 @@ public class TorchAssemblyResolver : IDisposable
             assemblyDef.MainModule.Types.Remove(type);
         }
     }
+#endif
 
-    static void FixSteamworksNETTypes(ref byte[] data)
+    static Assembly FixSteamworksNETTypes(string assemblyPath)
     {
+        var data = File.ReadAllBytes(assemblyPath);
+
         using var assemResolver = new Mono.Cecil.DefaultAssemblyResolver();
         assemResolver.RemoveSearchDirectory(".");
         assemResolver.RemoveSearchDirectory("bin");
@@ -188,13 +190,20 @@ public class TorchAssemblyResolver : IDisposable
         type.PackingSize = 8;
         type.Fields.Clear();
 
-        using (var stream = new MemoryStream(data.Length))
+        Directory.CreateDirectory("PatchedAssemblies");
+
+        var newFilePath = Path.Combine("PatchedAssemblies", Path.GetFileName(assemblyPath));
+
+        //using (var stream = new MemoryStream(data.Length))
+        using (var stream = File.OpenWrite(newFilePath))
         {
             moduleDef.Write(stream);
-            data = stream.ToArray();
+            //data = stream.ToArray();
         }
+
+        //return Assembly.Load(data);
+        return Assembly.LoadFrom(newFilePath);
     }
-#endif
 
     /// <summary>
     /// Unregisters the assembly resolver

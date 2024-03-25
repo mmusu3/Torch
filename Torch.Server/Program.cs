@@ -20,6 +20,9 @@ internal static class Program
     {
         Target.Register<FlowDocumentTarget>("FlowDocument");
 
+        if (Directory.Exists("PatchedAssemblies"))
+            Directory.Delete("PatchedAssemblies", recursive: true); // Clear cached files
+
         var workingDir = new FileInfo(typeof(Program).Assembly.Location).Directory.ToString();
         var binDir = Path.Combine(workingDir, "DedicatedServer64");
         var assemblyResolver = new TorchAssemblyResolver(binDir);
