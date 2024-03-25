@@ -23,7 +23,7 @@ internal static class Program
         if (Directory.Exists("PatchedAssemblies"))
             Directory.Delete("PatchedAssemblies", recursive: true); // Clear cached files
 
-        var workingDir = new FileInfo(typeof(Program).Assembly.Location).Directory.ToString();
+        var workingDir = AppContext.BaseDirectory;
         var binDir = Path.Combine(workingDir, "DedicatedServer64");
         var assemblyResolver = new TorchAssemblyResolver(binDir);
 

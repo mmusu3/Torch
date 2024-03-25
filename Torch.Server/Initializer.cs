@@ -71,7 +71,7 @@ quit";
             if (!Enumerable.Contains(args, "-noupdate"))
                 RunSteamCmd();
 
-            var basePath = new FileInfo(typeof(Program).Assembly.Location).Directory.ToString();
+            var basePath = AppContext.BaseDirectory;
             var apiSource = Path.Combine(basePath, "DedicatedServer64", "steam_api64.dll");
             var apiTarget = Path.Combine(basePath, "steam_api64.dll");
 
@@ -286,20 +286,25 @@ quit";
         private void HandleException(object sender, UnhandledExceptionEventArgs e)
         {
             _server.FatalException = true;
+
             var ex = (Exception)e.ExceptionObject;
+
             LogException(ex);
             SendAndDump();
             LogManager.Flush();
+
             if (Config.RestartOnCrash)
             {
                 Console.WriteLine("Restarting in 5 seconds.");
                 Thread.Sleep(5000);
 
-                var exe = typeof(Program).Assembly.Location;
-
 #if NET5_0_OR_GREATER
+                var exe = Environment.ProcessPath;
+
                 Config.WaitForPID = Environment.ProcessId.ToString();
 #else
+                var exe = typeof(Program).Assembly.Location;
+
                 Config.WaitForPID = Process.GetCurrentProcess().Id.ToString();
 #endif
 
