@@ -166,7 +166,12 @@
     <Page Remove="Views\WorldSelectControl.xaml" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <PostBuildEvent>copy "$(SolutionDir)NLog.config" "$(MSBuildProjectDirectory)\$(OutputPath)\$(TargetFramework)" &amp; copy "$(SolutionDir)NLog-user.config" "$(MSBuildProjectDirectory)\$(OutputPath)\$(TargetFramework)"</PostBuildEvent>
-  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\NLog-user.config" Link="NLog-user.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\NLog.config" Link="NLog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>
