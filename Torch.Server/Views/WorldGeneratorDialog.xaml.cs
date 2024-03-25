@@ -100,8 +100,7 @@ namespace Torch.Server
 
             MyLocalCache.SaveCheckpoint(checkpoint, worldPath);
 
-
-            _instanceManager.SelectWorld(worldPath, false);
+            _instanceManager.SelectWorld(worldPath);
             _instanceManager.ImportSelectedWorldConfig();
             Close();
         }

@@ -6,13 +6,11 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Media;
 using System.Windows.Threading;
 using Torch.API.Managers;
 using Torch.Server.Annotations;
 using Torch.Server.Managers;
 using Torch.Server.ViewModels;
-using Torch.Views;
 using VRage.Game.ModAPI;
 using VRage.Serialization;
 
@@ -33,10 +31,13 @@ namespace Torch.Server.Views
         public ConfigControl()
         {
             InitializeComponent();
+
             _instanceManager = TorchBase.Instance.Managers.GetManager<InstanceManager>();
             _instanceManager.InstanceLoaded += _instanceManager_InstanceLoaded;
+
             DataContext = _instanceManager.DedicatedConfig;
             TorchSettings.DataContext = (TorchConfig)TorchBase.Instance.Config;
+
             // Gets called once all children are loaded
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyStyles));
         }
@@ -51,11 +52,14 @@ namespace Torch.Server.Views
             foreach (var textbox in GetAllChildren<TextBox>(this))
             {
                 textbox.Style = (Style)Resources["ValidatedTextBox"];
+
                 var binding = textbox.GetBindingExpression(TextBox.TextProperty);
+
                 if (binding == null)
                     continue;
 
                 _bindingExpressions.Add(binding);
+
                 textbox.TextChanged += (sender, args) =>
                 {
                     binding.UpdateSource();
@@ -73,9 +77,11 @@ namespace Torch.Server.Views
             }
         }
 
-        private IEnumerable<T> GetAllChildren<T>(DependencyObject control) where T : DependencyObject
+        private IEnumerable<T> GetAllChildren<T>(DependencyObject control)
+            where T : DependencyObject
         {
             var children = LogicalTreeHelper.GetChildren(control).OfType<DependencyObject>();
+
             foreach (var child in children)
             {
                 if (child is T t)
@@ -102,17 +108,6 @@ namespace Torch.Server.Views
             _instanceManager.ImportSelectedWorldConfig();
         }
 
-        private void Selector_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            //The control doesn't update the binding before firing the event.
-            if (e.AddedItems.Count > 0)
-            {
-                var result = MessageBoxResult.Yes; //MessageBox.Show("Do you want to import the session settings from the selected world?", "Import Config", MessageBoxButton.YesNo);
-                var world = (WorldViewModel)e.AddedItems[0];
-                _instanceManager.SelectWorld(world.WorldPath, result != MessageBoxResult.Yes);
-            }
-        }
-
         public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]
@@ -123,7 +118,7 @@ namespace Torch.Server.Views
 
         private void NewWorld_OnClick(object sender, RoutedEventArgs e)
         {
-            var c  = new WorldGeneratorDialog(_instanceManager);
+            var c = new WorldGeneratorDialog(_instanceManager);
             c.Show();
         }
 
@@ -134,9 +129,7 @@ namespace Torch.Server.Views
             var d = new RoleEditor();
             var w = _instanceManager.DedicatedConfig.SelectedWorld;
 
-            if(w.Checkpoint.PromotedUsers == null) {
-                w.Checkpoint.PromotedUsers = new VRage.Serialization.SerializableDictionary<ulong, MyPromoteLevel>();
-            }
+            w.Checkpoint.PromotedUsers ??= new SerializableDictionary<ulong, MyPromoteLevel>();
 
             if (w == null)
             {
@@ -144,9 +137,8 @@ namespace Torch.Server.Views
                 return;
             }
 
-            if (w.Checkpoint.PromotedUsers == null)
-                w.Checkpoint.PromotedUsers = new SerializableDictionary<ulong, MyPromoteLevel>();
             d.Edit(w.Checkpoint.PromotedUsers.Dictionary);
+
             _instanceManager.DedicatedConfig.Administrators = w.Checkpoint.PromotedUsers.Dictionary.Where(k => k.Value >= MyPromoteLevel.Admin).Select(k => k.Key.ToString()).ToList();
         }
     }
