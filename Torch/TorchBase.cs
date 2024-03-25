@@ -284,15 +284,6 @@ namespace Torch
             Debug.Assert(MyPerGameSettings.BasicGameInfo.GameVersion != null, "MyPerGameSettings.BasicGameInfo.GameVersion != null");
             GameVersion = new MyVersion(MyPerGameSettings.BasicGameInfo.GameVersion.Value);
 
-            try
-            {
-                Console.Title = $"{Config.InstanceName} - Torch {TorchVersion}, SE {GameVersion}";
-            }
-            catch
-            {
-                // Running without a console
-            }
-
 #if DEBUG
             Log.Info("DEBUG");
 #else
@@ -305,8 +296,10 @@ namespace Torch
 
             Managers.GetManager<PluginManager>().LoadPlugins();
             Game = new VRageGame(this, TweakGameSettings, SteamAppName, SteamAppId, Config.InstancePath, RunArgs);
+
             if (!Game.WaitFor(VRageGame.GameState.Stopped))
                 Log.Warn("Failed to wait for game to be initialized");
+
             Managers.Attach();
             _init = true;
 
