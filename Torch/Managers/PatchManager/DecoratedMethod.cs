@@ -28,17 +28,19 @@ namespace Torch.Managers.PatchManager
 #nullable enable
 
         private readonly MethodBase _method;
+#if NETFRAMEWORK
+        private long _revertAddress;
+        private byte[]? _revertData = null;
+        private GCHandle? _pinnedPatch;
+#else
         MonoMod.RuntimeDetour.Hook? hook;
+#endif
 
         internal DecoratedMethod(MethodBase method)
             : base(null)
         {
             _method = method;
         }
-
-        private long _revertAddress;
-        private byte[]? _revertData = null;
-        private GCHandle? _pinnedPatch;
 
         internal bool HasChanged()
         {
@@ -90,34 +92,38 @@ namespace Torch.Managers.PatchManager
 
         private void HookMethod(MethodInfo patch)
         {
-            //_revertAddress = AssemblyMemory.GetMethodBodyStart(_method);
-            //var newAddress = AssemblyMemory.GetMethodBodyStart(patch);
+#if NETFRAMEWORK
+            _revertAddress = AssemblyMemory.GetMethodBodyStart(_method);
+            long newAddress = AssemblyMemory.GetMethodBodyStart(patch);
 
-            //AssemblyMemory.UnprotectMemoryPage(_revertAddress);
+            AssemblyMemory.UnprotectMemoryPage(_revertAddress);
 
-            //_revertData = AssemblyMemory.WriteJump(_revertAddress, newAddress);
-            //_pinnedPatch = GCHandle.Alloc(patch);
-
+            _revertData = AssemblyMemory.WriteJump(_revertAddress, newAddress);
+            _pinnedPatch = GCHandle.Alloc(patch);
+#else
             hook = new MonoMod.RuntimeDetour.Hook(_method, patch);
+#endif
         }
 
         internal void Revert()
         {
-            //if (_pinnedPatch.HasValue)
-            //{
-            //    _log.Debug($"Revert {_method.DeclaringType?.FullName}#{_method.Name}({string.Join(", ", _method.GetParameters().Select(x => x.ParameterType.Name))})");
-            //    AssemblyMemory.WriteMemory(_revertAddress, _revertData);
-            //    _revertData = null;
-            //    _pinnedPatch.Value.Free();
-            //    _pinnedPatch = null;
-            //}
-
+#if NETFRAMEWORK
+            if (_pinnedPatch.HasValue)
+            {
+                _log.Debug($"Revert {_method.DeclaringType?.FullName}#{_method.Name}({string.Join(", ", _method.GetParameters().Select(x => x.ParameterType.Name))})");
+                AssemblyMemory.WriteMemory(_revertAddress, _revertData);
+                _revertData = null;
+                _pinnedPatch.Value.Free();
+                _pinnedPatch = null;
+            }
+#else
             if (hook != null)
             {
                 _log.Debug($"Revert {_method.DeclaringType?.FullName}#{_method.Name}({string.Join(", ", _method.GetParameters().Select(x => x.ParameterType.Name))})");
                 hook.Dispose();
                 hook = null;
             }
+#endif
         }
 
         #region Create
