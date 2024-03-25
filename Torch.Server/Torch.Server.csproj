@@ -145,6 +145,7 @@
     <PackageReference Include="MonoMod.Backports" Version="1.1.0">
       <Aliases>mmbp</Aliases>
     </PackageReference>
+    <PackageReference Include="System.ServiceModel.Primitives" Version="4.10.3" />
     <Reference Include="System.Configuration.Install" />
   </ItemGroup>
 
