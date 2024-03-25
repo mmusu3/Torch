@@ -84,7 +84,7 @@ public class WebAPI
 
             try
             {
-                var ifaceArgs = new Dictionary<string, string>();
+                var ifaceArgs = new Dictionary<string, object?>();
                 ifaceArgs["itemcount"] = workshopIdsArray.Length.ToString();
 
                 for (int i = 0; i < workshopIdsArray.Length; i++)
@@ -115,9 +115,9 @@ public class WebAPI
 #if DEBUG
                 if (allFilesDetails != null)
                     PrintKeyValue(allFilesDetails);
+#endif
 
                 return null;
-#endif
             }
 
             int resultCount = allFilesDetails.GetIntOrDefault("resultcount");

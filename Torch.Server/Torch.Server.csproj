@@ -137,9 +137,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="protobuf-net" Version="2.4.8" />
-    <PackageReference Include="SteamKit2" Version="2.1.0" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="System.ServiceModel.Primitives" Version="4.10.3" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework) != 'net48'">
@@ -149,7 +148,6 @@
     <PackageReference Include="MonoMod.Backports" Version="1.1.0">
       <Aliases>mmbp</Aliases>
     </PackageReference>
-    <PackageReference Include="System.ServiceModel.Primitives" Version="4.10.3" />
     <Reference Include="System.Configuration.Install" />
   </ItemGroup>
 
