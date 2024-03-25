@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -32,11 +34,11 @@ namespace Torch.Server
 
         private bool _autoscrollLog = true;
         private bool _needScroll;
-        private System.Windows.Forms.Timer _scrollTimer;
+        private System.Windows.Forms.Timer _scrollTimer = null!;
 
         public TorchUI(TorchServer server)
         {
-            WindowStartupLocation = WindowStartupLocation.Manual;
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
             _config = (TorchConfig)server.Config;
             Width = _config.WindowWidth;
             Height = _config.WindowHeight;
@@ -79,7 +81,7 @@ namespace Torch.Server
 
         private void TorchUI_Loaded(object sender, RoutedEventArgs e)
         {
-            var scrollViewer = FindDescendant<ScrollViewer>(ConsoleText);
+            var scrollViewer = FindDescendant<ScrollViewer>(ConsoleText)!;
             scrollViewer.ScrollChanged += ConsoleText_OnScrollChanged;
 
             _scrollTimer = new System.Windows.Forms.Timer();
@@ -88,7 +90,7 @@ namespace Torch.Server
             _scrollTimer.Start();
         }
 
-        private void ScrollIfNeed(object sender, EventArgs e)
+        private void ScrollIfNeed(object? sender, EventArgs e)
         {
             if (_autoscrollLog && _needScroll)
             {
@@ -100,18 +102,21 @@ namespace Torch.Server
         private void AttachConsole()
         {
             const string target = "wpf";
+
             var doc = LogManager.Configuration.FindTargetByName<FlowDocumentTarget>(target)?.Document;
+
             if (doc == null)
             {
                 var wrapped = LogManager.Configuration.FindTargetByName<WrapperTargetBase>(target);
                 doc = (wrapped?.WrappedTarget as FlowDocumentTarget)?.Document;
             }
+
             ConsoleText.FontSize = _config.FontSize;
             ConsoleText.Document = doc ?? new FlowDocument(new Paragraph(new Run("No target!")));
             ConsoleText.TextChanged += ConsoleText_OnTextChanged;
         }
 
-        public static T FindDescendant<T>(DependencyObject obj)
+        public static T? FindDescendant<T>(DependencyObject obj)
             where T : DependencyObject
         {
             if (obj == null)
@@ -136,22 +141,21 @@ namespace Torch.Server
                 var potentialMatch = FindDescendant<T>(child);
 
                 if (potentialMatch != default)
-                {
                     return potentialMatch;
-                }
             }
 
             return default;
         }
 
-        private void ConsoleText_OnTextChanged(object sender, TextChangedEventArgs args)
+        private void ConsoleText_OnTextChanged(object? sender, TextChangedEventArgs args)
         {
             _needScroll = true;
         }
 
-        private void ConsoleText_OnScrollChanged(object sender, ScrollChangedEventArgs e)
+        private void ConsoleText_OnScrollChanged(object? sender, ScrollChangedEventArgs e)
         {
-            var scrollViewer = (ScrollViewer) sender;
+            var scrollViewer = (ScrollViewer)sender!;
+
             if (e.ExtentHeightChange == 0)
             {
                 // User change.
@@ -165,19 +169,20 @@ namespace Torch.Server
                 return;
 
             _config = config;
+
             Dispatcher.Invoke(() =>
             {
                 //InstancePathBox.Text = config.InstancePath;
             });
         }
 
-        private void BtnStart_Click(object sender, RoutedEventArgs e)
+        private void BtnStart_Click(object? sender, RoutedEventArgs e)
         {
             _server.DedicatedInstance.SaveConfig();
             Task.Run(() => _server.Start());
         }
 
-        private void BtnStop_Click(object sender, RoutedEventArgs e)
+        private void BtnStop_Click(object? sender, RoutedEventArgs e)
         {
             var result = MessageBox.Show("Are you sure you want to stop the server?", "Stop Server", MessageBoxButton.YesNo);
 
@@ -205,14 +210,14 @@ namespace Torch.Server
             Process.GetCurrentProcess().Kill();
         }
 
-        private void BtnRestart_Click(object sender, RoutedEventArgs e)
+        private void BtnRestart_Click(object? sender, RoutedEventArgs e)
         {
             //MySandboxGame.Static.Invoke(MySandboxGame.ReloadDedicatedServerSession); use i
         }
 
-        private void InstancePathBox_OnLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        private void InstancePathBox_OnLostKeyboardFocus(object? sender, KeyboardFocusChangedEventArgs e)
         {
-            var name = ((TextBox)sender).Text;
+            var name = ((TextBox)sender!).Text;
 
             if (!Directory.Exists(name))
                 return;
