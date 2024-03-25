@@ -1,5 +1,7 @@
+#nullable enable
+
 using System;
-using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -23,16 +25,14 @@ namespace Torch.Server.Managers
     {
         private const string CONFIG_NAME = "SpaceEngineers-Dedicated.cfg";
 
-        public event Action<ConfigDedicatedViewModel> InstanceLoaded;
+        public event Action<ConfigDedicatedViewModel>? InstanceLoaded;
 
-        public ConfigDedicatedViewModel DedicatedConfig { get; set; }
+        public ConfigDedicatedViewModel DedicatedConfig { get; set; } = null!;
 
         private static readonly Logger Log = LogManager.GetLogger(nameof(InstanceManager));
 
         public InstanceManager(ITorchBase torchInstance)
-            : base(torchInstance)
-        {
-        }
+            : base(torchInstance) { }
 
         public void LoadInstance(string path, bool validate = true)
         {
@@ -54,11 +54,10 @@ namespace Torch.Server.Managers
             //     return;
             // }
 
-
             // var config = new MyConfigDedicated<MyObjectBuilder_SessionSettings>(configPath);
             // config.Load(configPath);
 
-            DedicatedConfig = new ConfigDedicatedViewModel((MyConfigDedicated<MyObjectBuilder_SessionSettings>)MySandboxGame.ConfigDedicated);
+            DedicatedConfig = new ConfigDedicatedViewModel(this, (MyConfigDedicated<MyObjectBuilder_SessionSettings>)MySandboxGame.ConfigDedicated);
 
             var worldFolders = Directory.EnumerateDirectories(Path.Combine(Torch.Config.InstancePath, "Saves"));
 
@@ -69,7 +68,7 @@ namespace Torch.Server.Managers
                     if (!string.IsNullOrEmpty(f) && File.Exists(Path.Combine(f, "Sandbox.sbc")))
                         DedicatedConfig.Worlds.Add(new WorldViewModel(f));
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     Log.Error("Failed to load world at path: " + f);
                     continue;
@@ -82,70 +81,71 @@ namespace Torch.Server.Managers
                 return;
             }
 
-            SelectWorld(DedicatedConfig.LoadWorld ?? DedicatedConfig.Worlds.First().WorldPath, false);
+            if (DedicatedConfig.LoadWorld != null)
+                SelectWorld(DedicatedConfig.LoadWorld);
+            else
+                SelectWorld(DedicatedConfig.Worlds.First());
 
             InstanceLoaded?.Invoke(DedicatedConfig);
         }
 
-        public void SelectWorld(string worldPath, bool modsOnly = true)
+        public void SelectWorld(string worldPath)
         {
             var config = DedicatedConfig;
             config.LoadWorld = worldPath;
 
-            var worldInfo = config.Worlds.FirstOrDefault(x => x.WorldPath == worldPath);
+            var world = config.Worlds.FirstOrDefault(x => x.WorldPath == worldPath);
 
-            try
+            if (world?.Checkpoint == null)
             {
-                if (worldInfo?.Checkpoint == null)
+                try
                 {
-                    worldInfo = new WorldViewModel(worldPath);
-                    config.Worlds.Add(worldInfo);
+                    world = new WorldViewModel(worldPath);
+                    config.Worlds.Add(world);
+                }
+                catch (Exception)
+                {
+                    Log.Error("Failed to load world at path: " + worldPath);
+                    config.LoadWorld = null;
+                    return;
                 }
             }
-            catch (Exception ex)
-            {
-                Log.Error("Failed to load world at path: " + worldPath);
-                config.LoadWorld = null;
-                return;
-            }
 
-            config.SelectedWorld = worldInfo;
-
-            if (worldInfo?.Checkpoint != null)
-            {
-                config.Mods.Clear();
-                // remove the Torch mod to avoid running multiple copies of it
-                worldInfo.WorldConfiguration.Mods.RemoveAll(m => m.PublishedFileId == TorchModCore.MOD_ID);
-
-                foreach (var m in worldInfo.WorldConfiguration.Mods)
-                    config.Mods.Add(new ModItemInfo(m));
-
-                Task.Run(() => config.UpdateAllModInfosAsync());
-            }
+            UpdateSelectedWorld(world, updateView: true);
         }
 
-        public void SelectWorld(WorldViewModel world, bool modsOnly = true)
+        public void SelectWorld(WorldViewModel world, bool updateView = true)
         {
             var config = DedicatedConfig;
             config.LoadWorld = world.WorldPath;
-            config.SelectedWorld = world;
 
-            if (world?.Checkpoint != null)
-            {
-                config.Mods.Clear();
-                // remove the Torch mod to avoid running multiple copies of it
-                world.WorldConfiguration.Mods.RemoveAll(m => m.PublishedFileId == TorchModCore.MOD_ID);
+            UpdateSelectedWorld(world, updateView);
+        }
 
-                foreach (var m in world.WorldConfiguration.Mods)
-                    config.Mods.Add(new ModItemInfo(m));
+        void UpdateSelectedWorld(WorldViewModel world, bool updateView)
+        {
+            var config = DedicatedConfig;
 
-                Task.Run(() => config.UpdateAllModInfosAsync());
-            }
+            if (updateView)
+                config.UpdateSelectedWorld(world);
+
+            if (world.Checkpoint == null)
+                return;
+
+            config.Mods.Clear();
+
+            // remove the Torch mod to avoid running multiple copies of it
+            world.WorldConfiguration.Mods.RemoveAll(m => m.PublishedFileId == TorchModCore.MOD_ID);
+
+            foreach (var m in world.WorldConfiguration.Mods)
+                config.Mods.Add(new ModItemInfo(m));
+
+            Task.Run(() => config.UpdateAllModInfosAsync());
         }
 
         public void ImportSelectedWorldConfig()
         {
-            ImportWorldConfig(DedicatedConfig.SelectedWorld, false);
+            ImportWorldConfig(DedicatedConfig.SelectedWorld, modsOnly: false);
         }
 
         private void ImportWorldConfig(WorldViewModel world, bool modsOnly = true)
@@ -271,8 +271,8 @@ namespace Torch.Server.Managers
         public long WorldSizeKB { get; }
         private string _checkpointPath;
         private string _worldConfigPath;
-        public CheckpointViewModel Checkpoint { get; private set; }
 
+        public CheckpointViewModel Checkpoint { get; private set; }
         public WorldConfigurationViewModel WorldConfiguration { get; private set; }
 
         public WorldViewModel(string worldPath)
@@ -286,7 +286,7 @@ namespace Torch.Server.Managers
                 FolderName = Path.GetFileName(worldPath);
                 LoadSandbox();
             }
-            catch (ArgumentException ex)
+            catch (ArgumentException)
             {
                 Log.Error($"World view model failed to load the path: {worldPath} Please ensure this is a valid path.");
                 throw; //rethrow to be handled further up the stack
@@ -299,6 +299,7 @@ namespace Torch.Server.Managers
             MyObjectBuilderSerializerKeen.SerializeXML(_worldConfigPath, false, WorldConfiguration);
         }
 
+        [MemberNotNull(nameof(Checkpoint), nameof(WorldConfiguration))]
         private void LoadSandbox()
         {
             MyObjectBuilderSerializerKeen.DeserializeXML(_checkpointPath, out MyObjectBuilder_Checkpoint checkpoint);

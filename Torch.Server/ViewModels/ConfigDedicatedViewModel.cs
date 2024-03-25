@@ -15,14 +15,17 @@ namespace Torch.Server.ViewModels
     {
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
+        private InstanceManager _instanceManager;
+
         private MyConfigDedicated<MyObjectBuilder_SessionSettings> _config;
         public MyConfigDedicated<MyObjectBuilder_SessionSettings> Model => _config;
 
         public ConfigDedicatedViewModel()
-            : this(new MyConfigDedicated<MyObjectBuilder_SessionSettings>("")) { }
+            : this(null, new MyConfigDedicated<MyObjectBuilder_SessionSettings>("")) { }
 
-        public ConfigDedicatedViewModel(MyConfigDedicated<MyObjectBuilder_SessionSettings> configDedicated)
+        public ConfigDedicatedViewModel(InstanceManager instanceManager, MyConfigDedicated<MyObjectBuilder_SessionSettings> configDedicated)
         {
+            _instanceManager = instanceManager;
             _config = configDedicated;
             //_config.IgnoreLastSession = true;
             SessionSettings = new SessionSettingsViewModel(_config.SessionSettings);
@@ -68,8 +71,13 @@ namespace Torch.Server.ViewModels
             set
             {
                 SetValue(ref _selectedWorld, value);
-                LoadWorld = _selectedWorld?.WorldPath;
+                _instanceManager?.SelectWorld(value, updateView: false);
             }
+        }
+
+        internal void UpdateSelectedWorld(WorldViewModel world)
+        {
+            SetValue(ref _selectedWorld, world, nameof(SelectedWorld));
         }
 
         public async Task UpdateAllModInfosAsync(Action<string> messageHandler = null)
