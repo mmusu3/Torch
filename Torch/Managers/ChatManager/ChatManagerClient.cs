@@ -1,23 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Media;
 using NLog;
 using Sandbox.Engine.Multiplayer;
 using Sandbox.Engine.Networking;
-using Sandbox.Game.Entities.Character;
 using Sandbox.Game.Gui;
 using Sandbox.Game.Multiplayer;
 using Sandbox.Game.World;
 using Sandbox.ModAPI;
-using SteamKit2.Unified.Internal;
 using Torch.API;
 using Torch.API.Managers;
 using Torch.Utils;
 using VRage.Game;
-using VRageMath;
 using Color = VRageMath.Color;
 
 namespace Torch.Managers.ChatManager
@@ -34,7 +26,7 @@ namespace Torch.Managers.ChatManager
 
         /// <inheritdoc />
         public event MessageSendingDel MessageSending;
-        
+
         /// <inheritdoc />
         public void SendMessageAsSelf(string message)
         {
@@ -42,29 +34,34 @@ namespace Torch.Managers.ChatManager
             {
                 if (Sandbox.Engine.Platform.Game.IsDedicated)
                 {
-                    var scripted = new ScriptedChatMsg()
-                    {
+                    var scripted = new ScriptedChatMsg() {
                         Author = Torch.Config.ChatName,
                         Text = message,
                         Target = 0
                     };
-                    
+
                     var color = Torch.Config.ChatColor;
+
                     if (StringUtils.IsFontEnum(color))
                         scripted.Font = color;
                     else
                         scripted.Font = MyFontEnum.White;
 
                     scripted.Color = ColorUtils.TranslateColor(color);
-                    
+
                     MyMultiplayerBase.SendScriptedChatMessage(ref scripted);
                 }
                 else
+                {
                     throw new NotImplementedException("Chat system changes broke this");
-                    //MyMultiplayer.Static.SendChatMessage(message);
+                }
+
+                //MyMultiplayer.Static.SendChatMessage(message);
             }
             else if (HasHud)
+            {
                 MyHud.Chat.ShowMessage(MySession.Static.LocalHumanPlayer?.DisplayName ?? "Player", message);
+            }
         }
 
         /// <inheritdoc />
@@ -78,7 +75,9 @@ namespace Torch.Managers.ChatManager
         public override void Attach()
         {
             base.Attach();
+
             MyAPIUtilities.Static.MessageEntered += OnMessageEntered;
+
             if (MyMultiplayer.Static != null)
             {
                 _chatMessageRecievedReplacer = _chatMessageReceivedFactory.Invoke();
@@ -98,11 +97,15 @@ namespace Torch.Managers.ChatManager
         public override void Detach()
         {
             MyAPIUtilities.Static.MessageEntered -= OnMessageEntered;
+
             if (_chatMessageRecievedReplacer != null && _chatMessageRecievedReplacer.Replaced && HasHud)
                 _chatMessageRecievedReplacer.Restore(MyHud.Chat);
+
             if (_scriptedChatMessageRecievedReplacer != null && _scriptedChatMessageRecievedReplacer.Replaced && HasHud)
                 _scriptedChatMessageRecievedReplacer.Restore(MyHud.Chat);
+
             MyAPIUtilities.Static.MessageEntered -= OfflineMessageReciever;
+
             base.Detach();
         }
 
@@ -120,10 +123,13 @@ namespace Torch.Managers.ChatManager
         {
             if (!sendToOthers)
                 return;
+
             var torchMsg = new TorchChatMessage(MySession.Static.LocalHumanPlayer?.DisplayName ?? "Player", Sync.MyId, messageText, ChatChannel.Global, 0);
             bool consumed = RaiseMessageRecieved(torchMsg);
+
             if (!consumed)
                 consumed = OfflineMessageProcessor(torchMsg);
+
             sendToOthers = !consumed;
         }
 
@@ -131,6 +137,7 @@ namespace Torch.Managers.ChatManager
         {
             if (!sendToOthers)
                 return;
+
             var consumed = false;
             MessageSending?.Invoke(messageText, ref consumed);
             sendToOthers = !consumed;
@@ -141,6 +148,7 @@ namespace Torch.Managers.ChatManager
         {
             var torchMsg = new TorchChatMessage(steamUserId, messageText, channel, targetId,
                 (steamUserId == MyGameService.UserId) ? MyFontEnum.DarkBlue : MyFontEnum.Blue);
+
             if (!RaiseMessageRecieved(torchMsg) && HasHud)
                 _hudChatMessageReceived.Invoke(MyHud.Chat, steamUserId, messageText, channel, targetId, customAuthorName, customSenderId ?? 0);
         }
@@ -148,6 +156,7 @@ namespace Torch.Managers.ChatManager
         private void Multiplayer_ScriptedChatMessageReceived(string message, string author, string font, Color color)
         {
             var torchMsg = new TorchChatMessage(author, message, font);
+
             if (!RaiseMessageRecieved(torchMsg) && HasHud)
                 _hudChatScriptedMessageReceived.Invoke(MyHud.Chat, author, message, font, color);
         }
@@ -161,7 +170,7 @@ namespace Torch.Managers.ChatManager
 
         private const string _hudChatMessageReceivedName = "OnMultiplayer_ChatMessageReceived";
         private const string _hudChatScriptedMessageReceivedName = "multiplayer_ScriptedChatMessageReceived";
-        
+
         protected static bool HasHud => !Sandbox.Engine.Platform.Game.IsDedicated;
 
         [ReflectedMethod(Name = _hudChatMessageReceivedName)]
