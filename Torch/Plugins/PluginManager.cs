@@ -113,6 +113,7 @@ namespace Torch.Managers
         public override void Detach()
         {
             _sessionManager.SessionStateChanged -= SessionManagerOnSessionStateChanged;
+
             foreach (var plugin in _plugins.Values)
                 plugin.Dispose();
 
@@ -137,6 +138,7 @@ namespace Torch.Managers
                 {
                     plugin.Init(Torch);
                 }
+
                 _log.Info($"Loaded {_plugins.Count} plugins.");
                 PluginsLoaded?.Invoke(_plugins.Values.AsReadOnly());
                 return;
@@ -148,6 +150,7 @@ namespace Torch.Managers
             foreach (var item in pluginItems)
             {
                 var pluginItem = item;
+
                 if (!TryValidatePluginDependencies(pluginItems, ref pluginItem, out var missingPlugins))
                 {
                     // We have some missing dependencies.
@@ -155,6 +158,7 @@ namespace Torch.Managers
                     // just warn the user it's missing
                     foreach (var missingPlugin in missingPlugins)
                         _log.Warn($"{item.Manifest.Name} is missing dependency {missingPlugin}. Skipping plugin.");
+
                     continue;
                 }
 
@@ -172,10 +176,12 @@ namespace Torch.Managers
                     foreach (var item in pluginItems)
                     {
                         var pluginItem = item;
+
                         if (!TryValidatePluginDependencies(pluginItems, ref pluginItem, out var missingPlugins))
                         {
                             foreach (var missingPlugin in missingPlugins)
                                 _log.Warn($"{item.Manifest.Name} is missing dependency {missingPlugin}. Skipping plugin.");
+
                             continue;
                         }
 
@@ -245,7 +251,11 @@ namespace Torch.Managers
 
             foreach (var item in pluginItems)
             {
-                var path = Path.Combine(pluginDir, item);
+                var path = item;
+
+                if (!Path.IsPathRooted(path))
+                    path = Path.Combine(pluginDir, item);
+
                 var isZip = item.EndsWith(".zip", StringComparison.CurrentCultureIgnoreCase);
                 var manifest = isZip ? GetManifestFromZip(path) : GetManifestFromDirectory(path);
 
@@ -366,7 +376,7 @@ namespace Torch.Managers
             var assemblies = new List<Assembly>();
             //var loaded = AppDomain.CurrentDomain.GetAssemblies();
 
-            var assemblyFiles = new Dictionary<string, (byte[], byte[]?)>();
+            var assemblyFiles = new Dictionary<string, (string? FilePath, byte[] AsmData, byte[]? SymbolData)>();
 
             if (item.IsZip)
             {
@@ -401,22 +411,8 @@ namespace Torch.Managers
                                 }
                             }
 
-                            assemblyFiles.Add(Path.GetFileNameWithoutExtension(entry.Name), (data, symbol));
+                            assemblyFiles.Add(Path.GetFileNameWithoutExtension(entry.Name), (null, data, symbol));
                         }
-                    }
-
-                    foreach (var ad in assemblyFiles)
-                    {
-                        var data = ad.Value.Item1;
-                        var symbol = ad.Value.Item2;
-
-                        ModifyAssemblyData(ref data, ref symbol, assemblyFiles, ad.Key);
-
-                        var assembly = symbol != null
-                            ? Assembly.Load(data, symbol)
-                            : Assembly.Load(data);
-
-                        assemblies.Add(assembly);
                     }
                 }
             }
@@ -455,23 +451,20 @@ namespace Torch.Managers
                             }
                         }
 
-                        assemblyFiles.Add(Path.GetFileNameWithoutExtension(file), (data, symbol));
+                        assemblyFiles.Add(Path.GetFileNameWithoutExtension(file), (file, data, symbol));
                     }
                 }
+            }
 
-                foreach (var ad in assemblyFiles)
-                {
-                    var data = ad.Value.Item1;
-                    var symbol = ad.Value.Item2;
+            foreach (var ad in assemblyFiles)
+            {
+                var data = ad.Value.AsmData;
+                var symbol = ad.Value.SymbolData;
 
-                    ModifyAssemblyData(ref data, ref symbol, assemblyFiles, ad.Key);
+                var assembly = LoadAssembly(data, ref symbol, ad.Key, ad.Value.FilePath, assemblyFiles);
 
-                    var assembly = symbol != null
-                        ? Assembly.Load(data, symbol)
-                        : Assembly.Load(data);
-
+                if (assembly != null)
                     assemblies.Add(assembly);
-                }
             }
 
             RegisterAllAssemblies(assemblies);
@@ -482,10 +475,10 @@ namespace Torch.Managers
         class PluginCecilAssemblyResolver : Mono.Cecil.BaseAssemblyResolver
         {
             readonly Dictionary<string, Mono.Cecil.AssemblyDefinition> cache;
-            readonly Dictionary<string, (byte[], byte[]?)> assemblyFiles;
+            readonly Dictionary<string, (string?, byte[], byte[]?)> assemblyFiles;
             readonly Mono.Cecil.ReaderParameters readerParameters;
 
-            public PluginCecilAssemblyResolver(Dictionary<string, (byte[], byte[]?)> assemblyFiles)
+            public PluginCecilAssemblyResolver(Dictionary<string, (string?, byte[], byte[]?)> assemblyFiles)
             {
                 cache = new Dictionary<string, Mono.Cecil.AssemblyDefinition>(StringComparer.Ordinal);
                 this.assemblyFiles = assemblyFiles;
@@ -500,7 +493,7 @@ namespace Torch.Managers
                     return assembly;
 
                 if (assemblyFiles.TryGetValue(name.Name, out var assemData))
-                    assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(new MemoryStream(assemData.Item1), readerParameters);
+                    assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(new MemoryStream(assemData.Item2), readerParameters);
                 else
                     assembly = base.Resolve(name);
 
@@ -521,74 +514,130 @@ namespace Torch.Managers
         }
 #endif
 
-        static void ModifyAssemblyData(ref byte[] data, ref byte[]? symbolData, Dictionary<string, (byte[], byte[]?)> assemblyFiles, string assemblyName)
+        static Assembly? LoadAssembly(byte[] data, ref byte[]? symbolData, string assemblyName, string? originalFilePath,
+            Dictionary<string, (string? FilePath, byte[] AsmData, byte[]? SymbolData)> assemblyFiles)
         {
+            Assembly? assembly;
+
+            try
+            {
+                assembly = Assembly.Load(assemblyName);
+            }
+            catch
+            {
+                assembly = null;
+            }
+
+            if (assembly != null)
+                return assembly;
+
 #if NET8_0_OR_GREATER
+            string? newFilePath = null;
+
             // TODO: PDB?
             try
             {
-                using var assemResolver = new PluginCecilAssemblyResolver(assemblyFiles);
-                assemResolver.AddSearchDirectory("DedicatedServer64");
-
-                var readerParams = new Mono.Cecil.ReaderParameters() {
-                    InMemory = true,
-                    AssemblyResolver = assemResolver
-                };
-
-                using var assemblyDef = Mono.Cecil.AssemblyDefinition.ReadAssembly(new MemoryStream(data), readerParams);
-                bool assemblyModified = false;
-
-                foreach (var typeDef in assemblyDef.MainModule.Types)
-                {
-                    foreach (var fieldDef in typeDef.Fields)
-                    {
-                        if (!fieldDef.IsStatic || !fieldDef.IsInitOnly)
-                            continue;
-
-                        bool hasReflectedMemberAttrib = false;
-
-                        foreach (var attrib in fieldDef.CustomAttributes)
-                        {
-                            switch (attrib.AttributeType.FullName)
-                            {
-                            case "Torch.Utils.ReflectedMethodAttribute":
-                            case "Torch.Utils.ReflectedStaticMethodAttribute":
-                            case "Torch.Utils.ReflectedGetterAttribute":
-                            case "Torch.Utils.ReflectedSetterAttribute":
-                            case "Torch.Utils.ReflectedFieldInfoAttribute":
-                            case "Torch.Utils.ReflectedPropertyInfoAttribute":
-                            case "Torch.Utils.ReflectedMethodInfoAttribute":
-                            case "Torch.Utils.ReflectedEventReplaceAttribute":
-                                hasReflectedMemberAttrib = true;
-                                break;
-                            }
-                        }
-
-                        if (hasReflectedMemberAttrib)
-                        {
-                            // Cannot set readonly static fields via reflection in newer .net runtimes.
-                            // Change to non-readonly.
-                            fieldDef.IsInitOnly = false;
-                            assemblyModified = true;
-                        }
-                    }
-                }
-
-                if (!assemblyModified)
-                    return;
-
-                using (var stream = new MemoryStream(data.Length))
-                {
-                    assemblyDef.Write(stream);
-                    data = stream.ToArray();
-                }
+                PatchPluginAssemblyIfNeeded(ref data, assemblyName, assemblyFiles, out newFilePath);
             }
             catch (Exception ex)
             {
                 _log.Error(ex, $"Failed to pre-patch plugin assembly '{assemblyName}'.");
             }
+
+            if (newFilePath != null)
+            {
+                assembly = Assembly.LoadFrom(newFilePath);
+            }
+            else
 #endif
+
+            if (originalFilePath != null)
+            {
+                assembly = Assembly.LoadFrom(originalFilePath);
+            }
+            else
+            {
+                assembly = symbolData != null
+                    ? Assembly.Load(data, symbolData)
+                    : Assembly.Load(data);
+            }
+
+            return assembly;
         }
+
+#if NET8_0_OR_GREATER
+        static bool PatchPluginAssemblyIfNeeded(ref byte[] data, string assemblyName,
+            Dictionary<string, (string? FilePath, byte[] AsmData, byte[]? SymbolData)> assemblyFiles,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? newFilePath)
+        {
+            var assemResolver = new PluginCecilAssemblyResolver(assemblyFiles);
+            assemResolver.AddSearchDirectory("DedicatedServer64");
+
+            var readerParams = new Mono.Cecil.ReaderParameters() {
+                InMemory = true,
+                AssemblyResolver = assemResolver
+            };
+
+            using var assemblyDef = Mono.Cecil.AssemblyDefinition.ReadAssembly(new MemoryStream(data), readerParams);
+            bool assemblyModified = false;
+
+            foreach (var typeDef in assemblyDef.MainModule.Types)
+            {
+                foreach (var fieldDef in typeDef.Fields)
+                {
+                    if (!fieldDef.IsStatic || !fieldDef.IsInitOnly)
+                        continue;
+
+                    bool hasReflectedMemberAttrib = false;
+
+                    foreach (var attrib in fieldDef.CustomAttributes)
+                    {
+                        switch (attrib.AttributeType.FullName)
+                        {
+                        case "Torch.Utils.ReflectedMethodAttribute":
+                        case "Torch.Utils.ReflectedStaticMethodAttribute":
+                        case "Torch.Utils.ReflectedGetterAttribute":
+                        case "Torch.Utils.ReflectedSetterAttribute":
+                        case "Torch.Utils.ReflectedFieldInfoAttribute":
+                        case "Torch.Utils.ReflectedPropertyInfoAttribute":
+                        case "Torch.Utils.ReflectedMethodInfoAttribute":
+                        case "Torch.Utils.ReflectedEventReplaceAttribute":
+                            hasReflectedMemberAttrib = true;
+                            break;
+                        }
+                    }
+
+                    if (hasReflectedMemberAttrib)
+                    {
+                        // Cannot set readonly static fields via reflection in newer .net runtimes.
+                        // Change to non-readonly.
+                        fieldDef.IsInitOnly = false;
+                        assemblyModified = true;
+                    }
+                }
+            }
+
+            if (assemblyModified)
+            {
+                Directory.CreateDirectory("PatchedAssemblies");
+
+                newFilePath = Path.Combine("PatchedAssemblies", assemblyName + ".dll");
+
+                //using (var stream = new MemoryStream(data.Length))
+                using (var stream = File.OpenWrite(newFilePath))
+                {
+                    assemblyDef.Write(stream);
+                    //data = stream.ToArray();
+                }
+            }
+            else
+            {
+                newFilePath = null;
+            }
+
+            return assemblyModified;
+        }
+#endif
 
 #nullable restore
 
@@ -625,7 +674,10 @@ namespace Torch.Managers
 
         private static bool IsAssemblyCompatible(AssemblyName a, AssemblyName b)
         {
-            return a.Name == b.Name && a.Version.Major == b.Version.Major && a.Version.Minor == b.Version.Minor;
+            int aMajor = a.Version?.Major ?? 0;
+            int aMinor = a.Version?.Minor ?? 0;
+
+            return a.Name == b.Name && aMajor == b.Version.Major && aMinor == b.Version.Minor;
         }
 
         public void ReloadPlugins()
