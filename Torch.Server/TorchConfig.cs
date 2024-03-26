@@ -3,13 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Windows;
 using System.Xml.Serialization;
-using Newtonsoft.Json;
 using NLog;
 using Torch.API;
 using Torch.Views;
-using VRage.Game;
 
 namespace Torch.Server
 {
@@ -37,8 +34,8 @@ namespace Torch.Server
         private string _chatColor = "Red";
         private bool _enableWhitelist = false;
         private List<ulong> _whitelist = new List<ulong>();
-        private int _windowWidth = 980;
-        private int _windowHeight = 588;
+        private int _windowWidth = 1200;
+        private int _windowHeight = 800;
         private bool _independentConsole = false;
         private bool _enableAsserts = false;
         private int _fontSize = 16;
@@ -89,7 +86,7 @@ namespace Torch.Server
         [Arg("restartoncrash", "Automatically restart the server if it crashes.")]
         [Display(Name = "Restart On Crash", Description = "Automatically restart the server if it crashes.", GroupName = "Server")]
         public bool RestartOnCrash { get => _restartOnCrash; set => Set(value, ref _restartOnCrash); }
-        
+
         /// <summary>
         /// Enable Game update detection. If enabled, server will restart when game updates are found.
         /// </summary>
@@ -120,7 +117,7 @@ namespace Torch.Server
         /// <inheritdoc />
         [Display(Name = "Update Plugins", Description = "Check every start for new versions of plugins.", GroupName = "Server")]
         public bool GetPluginUpdates { get => _getPluginUpdates; set => Set(value, ref _getPluginUpdates); }
-        
+
         /// <inheritdoc />
         [Display(Name = "Bypass reloadable flag", Description = "Bypass the reloadable flag on plugins (forces true).", GroupName = "Server")]
         public bool BypassIsReloadableFlag { get => bypassIsReloadableFlag; set => Set(value, ref bypassIsReloadableFlag); }
@@ -176,7 +173,7 @@ namespace Torch.Server
             set => Set(value, ref _torchBranch);
         }
 
-public string LastUsedTheme { get; set; } = "Torch Theme";
+        public string LastUsedTheme { get; set; } = "Torch Theme";
 
         //Prevent reserved players being written to disk, but allow it to be read
         //remove this when ReservedPlayers is removed
@@ -193,11 +190,11 @@ public string LastUsedTheme { get; set; } = "Torch Theme";
         [Arg("asserts", "Enable Keen's assert logging.")]
         [Display(Name = "Enable Asserts", Description = "Enable Keen's assert logging.", GroupName = "Server")]
         public bool EnableAsserts { get => _enableAsserts; set => Set(value, ref _enableAsserts); }
-        
+
         [Arg("sendlogstokeen", "On crash, send debug data and logs to Keen.")]
         [Display(Name = "Send Logs To Keen", Description = "On crash, send debug data and logs to Keen.", GroupName = "Logging")]
         public bool SendLogsToKeen { get => _sendLogsToKeen; set => Set(value, ref _sendLogsToKeen); }
-        
+
         [Arg("delteminidumps", "Delete mini dumps after they are created")]
         [Display(Name = "Delete Mini Dumps", Description = "Delete mini dumps after they are created", GroupName = "Logging")]
         public bool DeleteMiniDumps { get => _deleteMiniDumps; set => Set(value, ref _deleteMiniDumps); }

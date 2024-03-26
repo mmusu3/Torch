@@ -38,19 +38,22 @@ namespace Torch.Server
 
         public TorchUI(TorchServer server)
         {
-            WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            _config = (TorchConfig)server.Config;
             _server = server;
+            _config = (TorchConfig)server.Config;
+
             //TODO: data binding for whole server
             DataContext = server;
+
             InitializeComponent();
 
-            //Width = _config.WindowWidth;
-            //Height = _config.WindowHeight;
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            Width = _config.WindowWidth;
+            Height = _config.WindowHeight;
             //Left = _config.WindowPosition.X;
             //Top = _config.WindowPosition.Y;
 
             var config = LogManager.Configuration;
+
             var customTarget = new NlogCustomTarget() {
                 Name = "NlogCustomTarget"
             };
