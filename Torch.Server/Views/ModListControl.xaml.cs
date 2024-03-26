@@ -1,32 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Runtime.CompilerServices;
 using System.Windows.Threading;
-using VRage.Game;
 using NLog;
-using Sandbox.Engine.Networking;
 using Torch.API;
-using Torch.Server.Managers;
 using Torch.API.Managers;
-using Torch.Server.ViewModels;
-using Torch.Server.Annotations;
 using Torch.Collections;
+using Torch.Server.Annotations;
+using Torch.Server.Managers;
+using Torch.Server.ViewModels;
 using Torch.Utils;
 using Torch.Views;
 
@@ -38,6 +30,7 @@ namespace Torch.Server.Views
     public partial class ModListControl : UserControl, INotifyPropertyChanged
     {
         private static Logger Log = LogManager.GetLogger(nameof(ModListControl));
+
         private InstanceManager _instanceManager;
         ModItemInfo _draggedMod;
         bool _hasOrderChanged = false;
@@ -45,24 +38,36 @@ namespace Torch.Server.Views
         private readonly ITorchConfig _config;
 
         //private List<BindingExpression> _bindingExpressions = new List<BindingExpression>();
+
         /// <summary>
-        /// Constructor for ModListControl 
+        /// Constructor for ModListControl
         /// </summary>
         public ModListControl()
         {
             InitializeComponent();
-            _instanceManager = TorchBase.Instance.Managers.GetManager<InstanceManager>();
-            _instanceManager.InstanceLoaded += _instanceManager_InstanceLoaded;
-            _config = TorchBase.Instance.Config;
-            //var mods = _instanceManager.DedicatedConfig?.Mods;
-            //if( mods != null)
-            //    DataContext = new ObservableCollection<MyObjectBuilder_Checkpoint.ModItem>();
-            DataContext = _instanceManager.DedicatedConfig?.Mods;
-            UgcServiceTypeBox.ItemsSource = new[]
+
+            var torchInstance = TorchBase.Instance;
+
+            if (torchInstance != null)
             {
+                _instanceManager = torchInstance.Managers.GetManager<InstanceManager>();
+                _instanceManager.InstanceLoaded += _instanceManager_InstanceLoaded;
+
+                _config = torchInstance.Config;
+
+                //var mods = _instanceManager.DedicatedConfig?.Mods;
+
+                //if (mods != null)
+                //    DataContext = new ObservableCollection<MyObjectBuilder_Checkpoint.ModItem>();
+
+                DataContext = _instanceManager.DedicatedConfig?.Mods;
+            }
+
+            UgcServiceTypeBox.ItemsSource = new[] {
                 new KeyValuePair<string, string>("Steam", "steam"),
                 new KeyValuePair<string, string>("Mod.Io", "mod.io")
             };
+
             // Gets called once all children are loaded
             //Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyStyles));
         }
@@ -77,11 +82,12 @@ namespace Torch.Server.Views
             CollectionViewSource.GetDefaultView(ModList.ItemsSource).SortDescriptions.Clear();
         }
 
-
         private void _instanceManager_InstanceLoaded(ConfigDedicatedViewModel obj)
         {
             Log.Info("Instance loaded.");
-            Dispatcher.Invoke(() => {
+
+            Dispatcher.Invoke(() =>
+            {
                 DataContext = obj?.Mods ?? new MtObservableList<ModItemInfo>();
                 UpdateLayout();
                 ((MtObservableList<ModItemInfo>)DataContext).CollectionChanged += OnModlistUpdate;
@@ -91,6 +97,7 @@ namespace Torch.Server.Views
         private void OnModlistUpdate(object sender, NotifyCollectionChangedEventArgs e)
         {
             ModList.Items.Refresh();
+
             //if (e.Action == NotifyCollectionChangedAction.Remove)
             //    _instanceManager.SaveConfig();
         }
@@ -100,14 +107,14 @@ namespace Torch.Server.Views
             _instanceManager.SaveConfig();
         }
 
-
         private void AddBtn_OnClick(object sender, RoutedEventArgs e)
         {
             if (TryExtractId(AddModIDTextBox.Text, out ulong id))
             {
                 var mod = new ModItemInfo(ModItemUtils.Create(id, UgcServiceTypeBox.SelectedValue?.ToString()));
-                
+
                 _instanceManager.DedicatedConfig.Mods.Add(mod);
+
                 Task.Run(mod.UpdateModInfoAsync)
                     .ContinueWith((t) =>
                     {
@@ -116,6 +123,7 @@ namespace Torch.Server.Views
                             _instanceManager.DedicatedConfig.Save();
                         });
                     });
+
                 AddModIDTextBox.Text = "";
             }
             else
@@ -127,7 +135,8 @@ namespace Torch.Server.Views
         }
         private void RemoveBtn_OnClick(object sender, RoutedEventArgs e)
         {
-            var modList = ((MtObservableList<ModItemInfo>)DataContext);
+            var modList = (MtObservableList<ModItemInfo>)DataContext;
+
             if (ModList.SelectedItem is ModItemInfo mod && modList.Contains(mod))
                 modList.Remove(mod);
         }
@@ -137,6 +146,7 @@ namespace Torch.Server.Views
             var match = Regex.Match(input, @"(?<=id=)\d+").Value;
 
             bool success;
+
             if (string.IsNullOrEmpty(match))
                 success = ulong.TryParse(input, out result);
             else
@@ -148,6 +158,7 @@ namespace Torch.Server.Views
         private void ModList_Sorting(object sender, DataGridSortingEventArgs e)
         {
             Log.Info($"Sorting by '{e.Column.Header}'");
+
             if (e.Column == ModList.Columns[0])
             {
                 var dataView = CollectionViewSource.GetDefaultView(ModList.ItemsSource);
@@ -156,14 +167,16 @@ namespace Torch.Server.Views
                 _isSortedByLoadOrder = true;
             }
             else
+            {
                 _isSortedByLoadOrder = false;
+            }
         }
 
         private void ModList_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             //return;
 
-            _draggedMod = (ModItemInfo) TryFindRowAtPoint((UIElement) sender, e.GetPosition(ModList))?.DataContext;
+            _draggedMod = (ModItemInfo)TryFindRowAtPoint((UIElement)sender, e.GetPosition(ModList))?.DataContext;
 
             //DraggedMod = (ModItemInfo) ModList.SelectedItem;
         }
@@ -171,8 +184,10 @@ namespace Torch.Server.Views
         private static DataGridRow TryFindRowAtPoint(UIElement reference, Point point)
         {
             var element = reference.InputHitTest(point) as DependencyObject;
+
             if (element == null)
                 return null;
+
             if (element is DataGridRow row)
                 return row;
             else
@@ -182,11 +197,14 @@ namespace Torch.Server.Views
         private static T TryFindParent<T>(DependencyObject child) where T : DependencyObject
         {
             DependencyObject parent;
+
             if (child == null)
                 return null;
+
             if (child is ContentElement contentElement)
             {
                 parent = ContentOperations.GetParent(contentElement);
+
                 if (parent == null && child is FrameworkContentElement fce)
                     parent = fce.Parent;
             }
@@ -210,7 +228,8 @@ namespace Torch.Server.Views
                 return;
 
             var targetMod = (ModItemInfo)TryFindRowAtPoint((UIElement)sender, e.GetPosition(ModList))?.DataContext;
-            if( targetMod != null && !ReferenceEquals(_draggedMod, targetMod))
+
+            if (targetMod != null && !ReferenceEquals(_draggedMod, targetMod))
             {
                 _hasOrderChanged = true;
                 var modList = (MtObservableList<ModItemInfo>)DataContext;
@@ -227,6 +246,7 @@ namespace Torch.Server.Views
             if (!_isSortedByLoadOrder)
             {
                 var targetMod = (ModItemInfo)TryFindRowAtPoint((UIElement)sender, e.GetPosition(ModList))?.DataContext;
+
                 if (targetMod != null && !ReferenceEquals(_draggedMod, targetMod))
                 {
                     var msg = "Drag and drop is only available when sorted by load order!";
@@ -234,13 +254,15 @@ namespace Torch.Server.Views
                     MessageBox.Show(msg);
                 }
             }
+
             //if (DraggedMod != null && HasOrderChanged)
-                //Log.Info("Dragging over, saving...");
-                //_instanceManager.SaveConfig();
+            //Log.Info("Dragging over, saving...");
+            //_instanceManager.SaveConfig();
             _draggedMod = null;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
+
         [NotifyPropertyChangedInvocator]
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
@@ -251,7 +273,7 @@ namespace Torch.Server.Views
         {
             if (_draggedMod != null)
                 ModList.SelectedItem = _draggedMod;
-            else if( e.AddedCells.Count > 0)
+            else if (e.AddedCells.Count > 0)
                 ModList.SelectedItem = e.AddedCells[0].Item;
         }
 
@@ -271,28 +293,32 @@ namespace Torch.Server.Views
             {
                 if (!ModItemUtils.TryParse(id, out var item))
                     return null;
-                
+
                 var info = new ModItemInfo(item);
                 tasks.Add(Task.Run(info.UpdateModInfoAsync));
                 return info;
             }).Where(b => b != null));
-            
+
             _instanceManager.DedicatedConfig.Mods.Clear();
+
             foreach (var mod in modList)
                 _instanceManager.DedicatedConfig.Mods.Add(mod);
 
             Task.Run(async () =>
             {
                 await Task.WhenAll(tasks);
+
                 _instanceManager.DedicatedConfig.Save();
             });
         }
 
         private void UgcServiceTypeBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if ((string) UgcServiceTypeBox.SelectedValue == UGCServiceType.Steam.ToString() &&
+            if ((string)UgcServiceTypeBox.SelectedValue == UGCServiceType.Steam.ToString() &&
                 _config.UgcServiceType == UGCServiceType.EOS)
+            {
                 MessageBox.Show("Steam workshop is not available with current ugc service!");
+            }
         }
-    } 
+    }
 }
