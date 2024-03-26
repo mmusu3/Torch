@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -13,7 +12,6 @@ using MessageBox = System.Windows.Forms.MessageBox;
 
 namespace Torch.Server.Views
 {
-    
     public class LogViewModel
     {
         public ObservableCollection<LogEvent> LogEvents { get; set; }
@@ -32,38 +30,39 @@ namespace Torch.Server.Views
         public string Class { get; set; }
         public string Message { get; set; }
     }
+
     public partial class LogEventViewer : UserControl
     {
         private static Logger _log = LogManager.GetCurrentClassLogger();
         private ObservableCollection<LogEvent> Events = new ObservableCollection<LogEvent>();
 
-        string[] logLevels =
-        {
+        string[] logLevels = {
             "No filter",
             "Warn",
             "Error",
             "Fatal"
         };
-            
-        string[] classFilters =
-        {
+
+        string[] classFilters = {
             "No filter",
         };
+
         public LogEventViewer()
         {
             InitializeComponent();
-            
+
             //array of filterable log levels
 
             //populate the log level filter combo box
             LevelFilterComboBox.ItemsSource = logLevels;
             ClassFilterComboBox.ItemsSource = classFilters;
-            
+
             DataContext = new LogViewModel();
 
             NlogCustomTarget.LogEventReceived += LogEvent;
-            TorchServer.Instance.SessionUnloading += Unloading;
 
+            if (TorchServer.Instance != null)
+                TorchServer.Instance.SessionUnloading += Unloading;
 
             //on loaded event
             Loaded += (sender, args) =>
@@ -71,11 +70,9 @@ namespace Torch.Server.Views
                 //set the log level filter to the first item in the combo box
                 LevelFilterComboBox.SelectedIndex = 0;
                 ClassFilterComboBox.SelectedIndex = 0;
-                
+
                 if (TorchServer.Instance.Config.BranchName == TorchBranchType.dev)
-                {
                     TestButton.Visibility = Visibility.Visible;
-                }
             };
         }
 
@@ -99,7 +96,7 @@ namespace Torch.Server.Views
                         ClassFilterComboBox.ItemsSource = updatedClassFilters;
                         classFilters = updatedClassFilters; // Ensure classFilters is updated for future checks.
                     }
-    
+
                     AddRow(obj.Level.ToString(), obj.LoggerName, (obj.Message == "{0}" ? obj.FormattedMessage : obj.Message));
                 }
                 catch (Exception ex)
@@ -108,6 +105,7 @@ namespace Torch.Server.Views
                 }
             }, DispatcherPriority.Background);
         }
+
         private void LevelFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ApplyFilters();
@@ -124,7 +122,7 @@ namespace Torch.Server.Views
             ClassFilterComboBox.SelectedIndex = 0; // Reset to "No filter"
             ApplyFilters();
         }
-        
+
         private void ApplyFilters()
         {
             try
@@ -137,7 +135,7 @@ namespace Torch.Server.Views
                 {
                     bool levelMatch = (selectedLevel == "No filter" && logEvent.Level != "Warn") || // Exclude "Warn" unless explicitly selected
                                       logEvent.Level.Equals(selectedLevel, StringComparison.OrdinalIgnoreCase);
-                    bool classMatch = selectedClass == "No filter" || 
+                    bool classMatch = selectedClass == "No filter" ||
                                       logEvent.Class.Equals(selectedClass, StringComparison.OrdinalIgnoreCase);
                     return levelMatch && classMatch;
                 }).ToList();
@@ -154,41 +152,38 @@ namespace Torch.Server.Views
             }
         }
 
-
         private void LogEventViewerDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (sender is DataGrid grid && grid.SelectedItem is LogEvent logEvent)
             {
-                var messageWindow = new LogMessageWindow
-                {
+                var messageWindow = new LogMessageWindow {
                     Owner = Window.GetWindow(this) // Set owner if you want
                 };
                 messageWindow.MessageTextBox.Text = logEvent.Message;
                 messageWindow.ShowDialog(); // Show the window as a dialog
             }
         }
-        
+
         //method to add row to datagrid
         private void AddRow(string level, string caller, string message)
         {
-            var logEvent = new LogEvent()
-            {
+            var logEvent = new LogEvent() {
                 Time = DateTime.Now.TimeOfDay.ToString("hh\\:mm\\:ss"),
                 Level = level,
                 Class = caller,
                 Message = message
             };
-            
+
             Events.Add(logEvent);
-            
+
             //add to datagrid in reverse order
-            ((LogViewModel) DataContext).LogEvents.Insert(0, logEvent);
+            ((LogViewModel)DataContext).LogEvents.Insert(0, logEvent);
             ApplyFilters();
         }
 
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
-            ((LogViewModel) DataContext).LogEvents.Clear();
+            ((LogViewModel)DataContext).LogEvents.Clear();
         }
 
         private void TestButton_OnClickButton_Click(object sender, RoutedEventArgs e)
