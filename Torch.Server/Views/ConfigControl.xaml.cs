@@ -32,11 +32,16 @@ namespace Torch.Server.Views
         {
             InitializeComponent();
 
-            _instanceManager = TorchBase.Instance.Managers.GetManager<InstanceManager>();
-            _instanceManager.InstanceLoaded += _instanceManager_InstanceLoaded;
+            var torchInstance = TorchBase.Instance;
 
-            DataContext = _instanceManager.DedicatedConfig;
-            TorchSettings.DataContext = (TorchConfig)TorchBase.Instance.Config;
+            if (torchInstance != null)
+            {
+                _instanceManager = torchInstance.Managers.GetManager<InstanceManager>();
+                _instanceManager.InstanceLoaded += _instanceManager_InstanceLoaded;
+
+                DataContext = _instanceManager.DedicatedConfig;
+                TorchSettings.DataContext = (TorchConfig)torchInstance.Config;
+            }
 
             // Gets called once all children are loaded
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyStyles));
