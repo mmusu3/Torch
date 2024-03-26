@@ -15,7 +15,6 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources.xaml"/>
             </ResourceDictionary.MergedDictionaries>
-            <converters:InverseBooleanConverter x:Key="InverseBool"/>
         </ResourceDictionary>
     </Window.Resources>
     <!--
@@ -30,8 +29,18 @@
             <RowDefinition/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="1" Margin="5,5,5,5" Orientation="Horizontal">
-            <Button x:Name="BtnStart" Content="Start" Height="24" Width="75" Margin="5,0,5,0"
+            <Button x:Name="BtnStart" Height="24" Width="75" Margin="5,0,5,0"
                     HorizontalAlignment="Left" Click="BtnStart_Click">
+                <Button.Style>
+                    <Style TargetType="{x:Type Button}">
+                        <Setter Property="Content" Value="Start"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasRun}" Value="True">
+                                <Setter Property="Content" Value="Restart"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
                 <Button.IsEnabled>
                     <MultiBinding Converter="{StaticResource BooleanAndConverter}">
                         <Binding ElementName="MainWindow" Path="DataContext.CanRun"/>
@@ -66,11 +75,11 @@
             <TabItem Header="Log">
                 <RichTextBox x:FieldModifier="public" x:Name="ConsoleText" VerticalScrollBarVisibility="Visible" FontFamily="Consolas" IsReadOnly="True" Background="#0c0c0c"/>
             </TabItem>
-            
+
             <TabItem Header="Log Event viewer">
                 <views:LogEventViewer />
             </TabItem>
-            
+
             <TabItem Header="Configuration">
                 <Grid IsEnabled="{Binding Path=CanRun}">
                     <Grid.RowDefinitions>
@@ -83,7 +92,7 @@
                             <ColumnDefinition/>
                         </Grid.ColumnDefinitions>
                     </Grid>
-                    <views:ConfigControl Grid.Row="1" x:Name="ConfigControl" Margin="3" DockPanel.Dock="Bottom" IsEnabled="{Binding CanRun}"/>
+                    <views:ConfigControl Grid.Row="1" x:Name="ConfigControl" Margin="3" DockPanel.Dock="Bottom" />
                 </Grid>
             </TabItem>
             <TabItem Header="Mods">
