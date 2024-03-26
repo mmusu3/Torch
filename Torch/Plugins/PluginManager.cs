@@ -165,28 +165,25 @@ namespace Torch.Managers
                 pluginsToLoad.Add(pluginItem);
             }
 
-            if (Torch.Config.ShouldUpdatePlugins)
+            if (Torch.Config.ShouldUpdatePlugins && DownloadPluginUpdates(pluginsToLoad))
             {
-                if (DownloadPluginUpdates(pluginsToLoad))
+                // Resort the plugins just in case updates changed load hints.
+                pluginItems = GetLocalPlugins(PluginDir);
+                pluginsToLoad.Clear();
+
+                foreach (var item in pluginItems)
                 {
-                    // Resort the plugins just in case updates changed load hints.
-                    pluginItems = GetLocalPlugins(PluginDir);
-                    pluginsToLoad.Clear();
+                    var pluginItem = item;
 
-                    foreach (var item in pluginItems)
+                    if (!TryValidatePluginDependencies(pluginItems, ref pluginItem, out var missingPlugins))
                     {
-                        var pluginItem = item;
+                        foreach (var missingPlugin in missingPlugins)
+                            _log.Warn($"{item.Manifest.Name} is missing dependency {missingPlugin}. Skipping plugin.");
 
-                        if (!TryValidatePluginDependencies(pluginItems, ref pluginItem, out var missingPlugins))
-                        {
-                            foreach (var missingPlugin in missingPlugins)
-                                _log.Warn($"{item.Manifest.Name} is missing dependency {missingPlugin}. Skipping plugin.");
-
-                            continue;
-                        }
-
-                        pluginsToLoad.Add(pluginItem);
+                        continue;
                     }
+
+                    pluginsToLoad.Add(pluginItem);
                 }
             }
 
@@ -329,11 +326,13 @@ namespace Torch.Managers
                 {
                     if (!item.IsZip)
                     {
-                        _log.Warn($"Unzipped plugins cannot be auto-updated. Skipping plugin {item}");
+                        _log.Warn($"Unzipped plugins cannot be auto-updated. Skipping plugin {item.Manifest.Name}");
                         return;
                     }
+
                     item.Manifest.Version.TryExtractVersion(out Version currentVersion);
-                    var latest = await PluginQuery.Instance.QueryOne(item.Manifest.Guid);
+
+                    var latest = await PluginQuery.Instance.QueryOne(item.Manifest.Guid).ConfigureAwait(false);
 
                     if (latest?.LatestVersion == null)
                     {
@@ -357,7 +356,7 @@ namespace Torch.Managers
 
                     _log.Info($"Updating plugin '{item.Manifest.Name}' from {currentVersion} to {newVersion}.");
 
-                    await PluginQuery.Instance.DownloadPlugin(latest, item.Path);
+                    await PluginQuery.Instance.DownloadPlugin(latest, item.Path).ConfigureAwait(false);
 
                     Interlocked.Increment(ref count);
                 }
