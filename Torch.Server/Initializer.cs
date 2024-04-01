@@ -51,20 +51,18 @@ quit";
             if (_init)
                 return false;
 
-#if !DEBUG
             AppDomain.CurrentDomain.UnhandledException += HandleException;
-            LogManager.Configuration.AddRule(LogLevel.Info, LogLevel.Fatal, "console");
-            LogManager.ReconfigExistingLoggers();
-#endif
 
 #if DEBUG
-            AppDomain.CurrentDomain.UnhandledException += HandleException;
             //enables logging debug messages when built in debug mode. Amazing.
             LogManager.Configuration.AddRule(LogLevel.Debug, LogLevel.Debug, "main");
             LogManager.Configuration.AddRule(LogLevel.Debug, LogLevel.Debug, "console");
             LogManager.Configuration.AddRule(LogLevel.Debug, LogLevel.Debug, "wpf");
             LogManager.ReconfigExistingLoggers();
             Log.Debug("Debug logging enabled.");
+#else
+            LogManager.Configuration.AddRule(LogLevel.Info, LogLevel.Fatal, "console");
+            LogManager.ReconfigExistingLoggers();
 #endif
 
             // This is what happens when Keen is bad and puts extensions into the System namespace.
@@ -72,21 +70,21 @@ quit";
                 RunSteamCmd();
 
             var basePath = AppContext.BaseDirectory;
-            var apiSource = Path.Combine(basePath, "DedicatedServer64", "steam_api64.dll");
-            var apiTarget = Path.Combine(basePath, "steam_api64.dll");
-
-            if (!File.Exists(apiTarget))
-            {
-                File.Copy(apiSource, apiTarget);
-            }
-            else if (File.GetLastWriteTime(apiTarget) < File.GetLastWriteTime(apiSource))
-            {
-                File.Delete(apiTarget);
-                File.Copy(apiSource, apiTarget);
-            }
-
-            var havokSource = Path.Combine(basePath, "DedicatedServer64", "Havok.dll");
+            var steamApiTarget = Path.Combine(basePath, "steam_api64.dll");
             var havokTarget = Path.Combine(basePath, "Havok.dll");
+#if NETFRAMEWORK
+            var steamApiSource = Path.Combine(basePath, "DedicatedServer64", "steam_api64.dll");
+            var havokSource = Path.Combine(basePath, "DedicatedServer64", "Havok.dll");
+
+            if (!File.Exists(steamApiTarget))
+            {
+                File.Copy(steamApiSource, steamApiTarget);
+            }
+            else if (File.GetLastWriteTime(steamApiTarget) < File.GetLastWriteTime(steamApiSource))
+            {
+                File.Delete(steamApiTarget);
+                File.Copy(steamApiSource, steamApiTarget);
+            }
 
             if (!File.Exists(havokTarget))
             {
@@ -97,6 +95,13 @@ quit";
                 File.Delete(havokTarget);
                 File.Copy(havokSource, havokTarget);
             }
+#else
+            if (File.Exists(steamApiTarget))
+                File.Delete(steamApiTarget);
+
+            if (File.Exists(havokTarget))
+                File.Delete(havokTarget);
+#endif
 
             InitConfig();
 
@@ -186,9 +191,7 @@ quit";
             var log = LogManager.GetLogger("SteamCMD");
 
             if (!Directory.Exists(STEAMCMD_DIR))
-            {
                 Directory.CreateDirectory(STEAMCMD_DIR);
-            }
 
             if (!File.Exists(RUNSCRIPT_PATH))
                 File.WriteAllText(RUNSCRIPT_PATH, RUNSCRIPT);
@@ -198,6 +201,7 @@ quit";
                 try
                 {
                     log.Info("Downloading SteamCMD.");
+
                     using (var client = new WebClient())
                         client.DownloadFile("https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip", STEAMCMD_ZIP);
 

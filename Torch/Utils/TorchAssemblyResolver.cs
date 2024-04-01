@@ -5,6 +5,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+#if NETCOREAPP
+using System.Runtime.InteropServices;
+using System.Runtime.Loader;
+#endif
 using NLog;
 
 namespace Torch.Utils;
@@ -36,8 +40,33 @@ public class TorchAssemblyResolver : IDisposable
         _removablePathPrefix = location ?? "";
         _binDirectories = paths;
 
+#if NETFRAMEWORK
         AppDomain.CurrentDomain.AssemblyResolve += CurrentDomainOnAssemblyResolve;
+#else
+        AssemblyLoadContext.Default.Resolving += ResolveAssembly;
+        AssemblyLoadContext.Default.ResolvingUnmanagedDll += ResolveUnmanagedDll;
+#endif
     }
+
+#if NETCOREAPP
+    Assembly? ResolveAssembly(AssemblyLoadContext alc, AssemblyName name)
+    {
+        return CurrentDomainOnAssemblyResolve(null, name, null);
+    }
+
+    IntPtr ResolveUnmanagedDll(Assembly assembly, string name)
+    {
+        foreach (var binDir in _binDirectories)
+        {
+            var path = Path.Combine(binDir, name) + ".dll";
+
+            if (NativeLibrary.TryLoad(path, out IntPtr handle))
+                return handle;
+        }
+
+        return 0;
+    }
+#endif
 
     string SimplifyPath(string path)
     {
