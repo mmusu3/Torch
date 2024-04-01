@@ -9,14 +9,12 @@ using NLog;
 using Sandbox;
 using Sandbox.Engine.Utils;
 using Torch.API;
-using Torch.Collections;
 using Torch.Managers;
 using Torch.Mod;
 using Torch.Server.ViewModels;
 using Torch.Utils;
 using VRage.FileSystem;
 using VRage.Game;
-using VRage.ObjectBuilders;
 using VRage.ObjectBuilders.Private;
 
 namespace Torch.Server.Managers
@@ -132,6 +130,7 @@ namespace Torch.Server.Managers
             if (world.Checkpoint == null)
                 return;
 
+            config.SessionSettings = world.WorldConfiguration.Settings;
             config.Mods.Clear();
 
             // remove the Torch mod to avoid running multiple copies of it
@@ -141,65 +140,6 @@ namespace Torch.Server.Managers
                 config.Mods.Add(new ModItemInfo(m));
 
             Task.Run(() => config.UpdateAllModInfosAsync());
-        }
-
-        public void ImportSelectedWorldConfig()
-        {
-            ImportWorldConfig(DedicatedConfig.SelectedWorld, modsOnly: false);
-        }
-
-        private void ImportWorldConfig(WorldViewModel world, bool modsOnly = true)
-        {
-            var mods = new MtObservableList<ModItemInfo>();
-
-            foreach (var mod in world.WorldConfiguration.Mods)
-                mods.Add(new ModItemInfo(mod));
-
-            DedicatedConfig.Mods = mods;
-
-            Log.Debug("Loaded mod list from world");
-
-            if (!modsOnly)
-                DedicatedConfig.SessionSettings = world.WorldConfiguration.Settings;
-        }
-
-        private void ImportWorldConfig(bool modsOnly = true)
-        {
-            if (string.IsNullOrEmpty(DedicatedConfig.LoadWorld))
-                return;
-
-            var sandboxPath = Path.Combine(DedicatedConfig.LoadWorld, "Sandbox.sbc");
-
-            if (!File.Exists(sandboxPath))
-                return;
-
-            try
-            {
-                MyObjectBuilderSerializer.DeserializeXML(sandboxPath, out MyObjectBuilder_Checkpoint checkpoint, out ulong sizeInBytes);
-
-                if (checkpoint == null)
-                {
-                    Log.Error($"Failed to load {DedicatedConfig.LoadWorld}, checkpoint null ({sizeInBytes} bytes, instance {Torch.Config.InstancePath})");
-                    return;
-                }
-
-                var mods = new MtObservableList<ModItemInfo>();
-
-                foreach (var mod in checkpoint.Mods)
-                    mods.Add(new ModItemInfo(mod));
-
-                DedicatedConfig.Mods = mods;
-
-                Log.Debug("Loaded mod list from world");
-
-                if (!modsOnly)
-                    DedicatedConfig.SessionSettings = new SessionSettingsViewModel(checkpoint.Settings);
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Error loading mod list from world, verify that your mod list is accurate. '{DedicatedConfig.LoadWorld}'.");
-                Log.Error(e);
-            }
         }
 
         public void SaveConfig()
@@ -247,7 +187,7 @@ namespace Torch.Server.Managers
         /// <summary>
         /// Ensures that the given path is a valid server instance.
         /// </summary>
-        private void ValidateInstance(string path)
+        private static void ValidateInstance(string path)
         {
             Directory.CreateDirectory(Path.Combine(path, "Saves"));
             Directory.CreateDirectory(Path.Combine(path, "Mods"));
@@ -284,6 +224,7 @@ namespace Torch.Server.Managers
                 _checkpointPath = Path.Combine(WorldPath, "Sandbox.sbc");
                 _worldConfigPath = Path.Combine(WorldPath, "Sandbox_config.sbc");
                 FolderName = Path.GetFileName(worldPath);
+
                 LoadSandbox();
             }
             catch (ArgumentException)
@@ -321,9 +262,6 @@ namespace Torch.Server.Managers
                 checkpoint.Mods = null;
                 checkpoint.Settings = null;
             }
-
-            OnPropertyChanged(nameof(Checkpoint));
-            OnPropertyChanged(nameof(WorldConfiguration));
         }
     }
 }

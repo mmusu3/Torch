@@ -82,12 +82,15 @@ namespace Torch.Server
 
             var worldPath = Path.Combine(TorchBase.Instance.Config.InstancePath, "Saves", worldName);
             var checkpoint = _currentItem.Checkpoint;
+
             if (Directory.Exists(worldPath))
             {
                 MessageBox.Show("World already exists with that name.");
                 return;
             }
+
             Directory.CreateDirectory(worldPath);
+
             foreach (var file in Directory.EnumerateFiles(_currentItem.Path, "*", SearchOption.AllDirectories))
             {
                 // Trash code to work around inconsistent path formats.
@@ -99,9 +102,8 @@ namespace Torch.Server
             checkpoint.SessionName = worldName;
 
             MyLocalCache.SaveCheckpoint(checkpoint, worldPath);
-
             _instanceManager.SelectWorld(worldPath);
-            _instanceManager.ImportSelectedWorldConfig();
+
             Close();
         }
 
