@@ -533,10 +533,9 @@ namespace Torch.Managers
 #if NET8_0_OR_GREATER
             string? newFilePath = null;
 
-            // TODO: PDB?
             try
             {
-                PatchPluginAssemblyIfNeeded(ref data, assemblyName, assemblyFiles, out newFilePath);
+                PatchPluginAssemblyIfNeeded(ref data, ref symbolData, assemblyName, assemblyFiles, out newFilePath);
             }
             catch (Exception ex)
             {
@@ -565,7 +564,7 @@ namespace Torch.Managers
         }
 
 #if NET8_0_OR_GREATER
-        static bool PatchPluginAssemblyIfNeeded(ref byte[] data, string assemblyName,
+        static bool PatchPluginAssemblyIfNeeded(ref byte[] data, ref byte[]? symbolData, string assemblyName,
             Dictionary<string, (string? FilePath, byte[] AsmData, byte[]? SymbolData)> assemblyFiles,
             [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? newFilePath)
         {
@@ -574,7 +573,9 @@ namespace Torch.Managers
 
             var readerParams = new Mono.Cecil.ReaderParameters() {
                 InMemory = true,
-                AssemblyResolver = assemResolver
+                AssemblyResolver = assemResolver,
+                ReadSymbols = symbolData != null,
+                SymbolStream = symbolData != null ? new MemoryStream(symbolData) : null
             };
 
             using var assemblyDef = Mono.Cecil.AssemblyDefinition.ReadAssembly(new MemoryStream(data), readerParams);
@@ -620,12 +621,16 @@ namespace Torch.Managers
             {
                 Directory.CreateDirectory("PatchedAssemblies");
 
+                var writeParameters = new Mono.Cecil.WriterParameters {
+                    WriteSymbols = symbolData != null
+                };
+
                 newFilePath = Path.Combine("PatchedAssemblies", assemblyName + ".dll");
 
                 //using (var stream = new MemoryStream(data.Length))
                 using (var stream = File.OpenWrite(newFilePath))
                 {
-                    assemblyDef.Write(stream);
+                    assemblyDef.Write(stream, writeParameters);
                     //data = stream.ToArray();
                 }
             }
