@@ -24,12 +24,11 @@
     -->
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"></RowDefinition>
             <RowDefinition Height="Auto"/>
             <RowDefinition/>
         </Grid.RowDefinitions>
-        <StackPanel Grid.Row="1" Margin="5,5,5,5" Orientation="Horizontal">
-            <Button x:Name="BtnStart" Height="24" Width="75" Margin="5,0,5,0"
+        <StackPanel Grid.Row="0" Margin="10" Orientation="Horizontal">
+            <Button x:Name="BtnStart" Height="24" Width="75" Margin="0,0,5,0"
                     HorizontalAlignment="Left" Click="BtnStart_Click">
                 <Button.Style>
                     <Style TargetType="{x:Type Button}">
@@ -71,7 +70,7 @@
                 </Label.Content>
             </Label>
         </StackPanel>
-        <TabControl Grid.Row="2" Height="Auto" x:Name="TabControl" Margin="5,10,5,5">
+        <TabControl Grid.Row="1" Height="Auto" x:Name="TabControl" Margin="5">
             <TabItem Header="Log">
                 <RichTextBox x:FieldModifier="public" x:Name="ConsoleText" VerticalScrollBarVisibility="Visible" FontFamily="Consolas" IsReadOnly="True" Background="#0c0c0c"/>
             </TabItem>

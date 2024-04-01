@@ -82,7 +82,7 @@ namespace Torch.Server.Views
             }
         }
 
-        private IEnumerable<T> GetAllChildren<T>(DependencyObject control)
+        private static IEnumerable<T> GetAllChildren<T>(DependencyObject control)
             where T : DependencyObject
         {
             var children = LogicalTreeHelper.GetChildren(control).OfType<DependencyObject>();
@@ -110,7 +110,16 @@ namespace Torch.Server.Views
 
         private void ImportConfig_OnClick(object sender, RoutedEventArgs e)
         {
-            _instanceManager.ImportSelectedWorldConfig();
+            var dialog = new ImportWorldConfigDialog {
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = Window.GetWindow(this),
+                DataContext = DataContext
+            };
+
+            bool? result = dialog.ShowDialog();
+
+            if (result is true)
+                _instanceManager.DedicatedConfig.SelectedWorld = (WorldViewModel)dialog.SelectedWorld;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
