@@ -1,0 +1,7 @@
+Many small changes have been made which can be found in the revision history.
+The following major changes have been made to this fork:
+
+Convert project files to .NET SDK format.
+Multi-target .NET Framework 4.8 and .NET 8.
+Use MonoMod.RuntimeDetour for method hooking under .NET 8.
+Convert selected world combobox into a dialog.
