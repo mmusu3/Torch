@@ -114,10 +114,12 @@ namespace Torch
             {
                 Create();
                 _destroyGame = false;
+
                 while (!_destroyGame)
                 {
                     StateChange(GameState.Stopped);
                     _commandChanged.WaitOne();
+
                     if (_startGame)
                     {
                         _startGame = false;
@@ -162,7 +164,7 @@ namespace Torch
             //Type.GetType("VRage.Steam.MySteamService, VRage.Steam").GetProperty("IsActive").GetSetMethod(true).Invoke(service, new object[] {SteamAPI.Init()});
             _log.Info("Initializing network services");
 
-            bool isEos = TorchBase.Instance.Config.UgcServiceType == UGCServiceType.EOS;
+            bool isEos = _torch.Config.UgcServiceType == UGCServiceType.EOS;
 
             if (isEos)
             {
@@ -174,6 +176,7 @@ namespace Torch
             MyServiceManager.Instance.AddService<IMyServerDiscovery>(aggregator);
 
             IMyGameService service;
+
             if (isEos)
             {
                 service = MyEOSService.Create();
@@ -199,10 +202,7 @@ namespace Torch
             {
                 service = MySteamGameService.Create(dedicated, _appSteamId);
                 MyGameService.WorkshopService.AddAggregate(MySteamUgcService.Create(_appSteamId, service));
-                MySteamGameService.InitNetworking(dedicated,
-                    service,
-                    "Space Engineers",
-                    aggregator);
+                MySteamGameService.InitNetworking(dedicated, service, "Space Engineers", aggregator);
             }
 
             MyServiceManager.Instance.AddService(service);
@@ -239,11 +239,13 @@ namespace Torch
 
             if (!MySandboxGame.IsReloading)
                 MyFileSystem.InitUserSpecific(dedicated ? null : MyGameService.UserId.ToString());
+
             MySandboxGame.IsReloading = dedicated;
 
             // render init
             {
                 IMyRender renderer = null;
+
                 if (dedicated)
                 {
                     renderer = new MyNullRender();
@@ -251,12 +253,13 @@ namespace Torch
                 else
                 {
                     MyPerformanceSettings preset = MyGuiScreenOptionsGraphics.GetPreset(MyRenderPresetEnum.NORMAL);
-                    MyRenderProxy.Settings.User = MyVideoSettingsManager.GetGraphicsSettingsFromConfig(ref preset, false)
-                        .PerformanceSettings.RenderSettings;
+                    MyRenderProxy.Settings.User = MyVideoSettingsManager.GetGraphicsSettingsFromConfig(ref preset, false).PerformanceSettings.RenderSettings;
                     MyStringId graphicsRenderer = MySandboxGame.Config.GraphicsRenderer;
+
                     if (graphicsRenderer == MySandboxGame.DirectX11RendererKey)
                     {
                         renderer = new MyDX11Render(new MyRenderSettings?(MyRenderProxy.Settings));
+
                         if (!renderer.IsSupported)
                         {
                             MySandboxGame.Log.WriteLine(
@@ -264,14 +267,17 @@ namespace Torch
                             renderer = null;
                         }
                     }
+
                     if (renderer == null)
                     {
                         throw new MyRenderException(
                             "The current version of the game requires a Dx11 card. \\n For more information please see : http://blog.marekrosa.org/2016/02/space-engineers-news-full-source-code_26.html",
                             MyRenderExceptionEnum.GpuNotSupported);
                     }
+
                     MySandboxGame.Config.GraphicsRenderer = graphicsRenderer;
                 }
+
                 MyRenderProxy.Initialize(renderer);
                 MyRenderProfiler.SetAutocommit(false);
                 //This broke services?
@@ -280,6 +286,7 @@ namespace Torch
 
             // Loads object builder serializers. Intuitive, right?
             _log.Info("Setting up serializers");
+
             MyPlugins.RegisterGameAssemblyFile(MyPerGameSettings.GameModAssembly);
             if (MyPerGameSettings.GameModBaseObjBuildersAssembly != null)
                 MyPlugins.RegisterBaseGameObjectBuildersAssemblyFile(MyPerGameSettings.GameModBaseObjBuildersAssembly);
@@ -307,9 +314,8 @@ namespace Torch
             _game = new SpaceEngineersGame(_runArgs);
 
             if (MySandboxGame.FatalErrorDuringInit)
-            {
                 throw new InvalidOperationException("Failed to start sandbox game: see Keen log for details");
-            }
+
             try
             {
                 StateChange(GameState.Running);
@@ -332,10 +338,10 @@ namespace Torch
             }
         }
 
-#pragma warning disable 649
-        [ReflectedMethod(Name = "StartServer")]
-        private static Action<MySession, MyMultiplayerBase> _hostServerForSession;
-#pragma warning restore 649
+//#pragma warning disable 649
+//        [ReflectedMethod(Name = "StartServer")]
+//        private static Action<MySession, MyMultiplayerBase> _hostServerForSession;
+//#pragma warning restore 649
 
         private void DoLoadSession(string sessionPath)
         {
@@ -347,7 +353,9 @@ namespace Torch
                 MySessionLoader.LoadSingleplayerSession(sessionPath);
                 return;
             }
+
             MyObjectBuilder_Checkpoint checkpoint = MyLocalCache.LoadCheckpoint(sessionPath, out ulong checkpointSize);
+
             /*if (MySession.IsCompatibleVersion(checkpoint))
             {
                 var downloadResult = MyWorkshop.DownloadWorldModsBlocking(checkpoint.Mods.Select(b =>
@@ -355,6 +363,7 @@ namespace Torch
                     b.PublishedServiceName = ModItemUtils.GetDefaultServiceName();
                     return b;
                 }).ToList(), null);
+
                 if (downloadResult.Success)
                 {
                     MyLog.Default.WriteLineAndConsole("Mods Downloaded");
@@ -370,8 +379,10 @@ namespace Torch
                 }
             }
             else
+            {
                 MyLog.Default.WriteLineAndConsole(MyTexts.Get(MyCommonTexts.DialogTextIncompatibleWorldVersion)
-                    .ToString());*/
+                    .ToString());
+            }*/
         }
 
         private void DoJoinSession(ulong lobbyId)
@@ -386,13 +397,16 @@ namespace Torch
                 MyScreenManager.CloseAllScreensExcept(null);
                 MyGuiSandbox.Update(16);
             }
+
             if (MySession.Static != null)
             {
                 MySession.Static.Unload();
                 MySession.Static = null;
             }
+
             {
                 var musicCtl = _getMusicControllerStatic();
+
                 if (musicCtl != null)
                 {
                     _musicControllerUnload(musicCtl);
@@ -400,14 +414,11 @@ namespace Torch
                     MyAudio.Static.MusicAllowed = true;
                 }
             }
-            if (MyMultiplayer.Static != null)
-            {
-                MyMultiplayer.Static.Dispose();
-            }
+
+            MyMultiplayer.Static?.Dispose();
+
             if (!Sandbox.Engine.Platform.Game.IsDedicated)
-            {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateScreen(MyPerGameSettings.GUI.MainMenu));
-            }
         }
 
         private void DoStop()

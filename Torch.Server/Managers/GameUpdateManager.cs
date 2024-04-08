@@ -17,10 +17,11 @@ namespace Torch.Server.Managers
         private CancellationTokenSource _cancellationTokenSource;
         private readonly HttpClient _httpClient;
         private const string UpdateCheckUrl = "https://mirror.keenswh.com/news/SpaceEngineersChangelog.xml";
-        
+
         private static readonly Logger _log = LogManager.GetCurrentClassLogger();
 
-        public GameUpdateManager(ITorchBase torchInstance) : base(torchInstance)
+        public GameUpdateManager(ITorchBase torchInstance)
+            : base(torchInstance)
         {
             _httpClient = new HttpClient();
         }
@@ -29,7 +30,7 @@ namespace Torch.Server.Managers
         {
             _log.Debug("Starting game update manager");
             base.Attach();
-            
+
             _cancellationTokenSource = new CancellationTokenSource();
 
             Task.Run(async () =>
@@ -68,7 +69,7 @@ namespace Torch.Server.Managers
             }
 
             var currentVersion = MyPerGameSettings.BasicGameInfo.GameVersion.Value;
-            
+
             if (IsNewerVersion(latestVersion, currentVersion.ToString()))
             {
                 await HandleNewVersion(latestVersion);
@@ -77,7 +78,7 @@ namespace Torch.Server.Managers
 
         private bool ShouldCheckForUpdates()
         {
-            return TorchBase.Instance.GameState == TorchGameState.Loaded && TorchBase.Instance.Config.RestartOnGameUpdate;
+            return Torch.GameState == TorchGameState.Loaded && Torch.Config.RestartOnGameUpdate;
         }
 
         private async Task<string> GetLatestVersionAsync()
@@ -97,9 +98,7 @@ namespace Torch.Server.Managers
             for (int i = 0; i < Math.Min(latestVersionParts.Length, currentVersionParts.Length); i++)
             {
                 if (int.Parse(latestVersionParts[i]) > int.Parse(currentVersionParts[i]))
-                {
                     return true;
-                }
             }
 
             return latestVersionParts.Length > currentVersionParts.Length;
@@ -112,14 +111,15 @@ namespace Torch.Server.Managers
             try
             {
                 var chatManager = Torch.CurrentSession?.Managers.GetManager<ChatManagerServer>();
+
                 if (chatManager != null)
                 {
-                    var message = $"A new version of Space Engineers is available! The server will restart in {TorchBase.Instance.Config.GameUpdateRestartDelayMins} minutes to update to version {latestVersion}.";
+                    var message = $"A new version of Space Engineers is available! The server will restart in {Torch.Config.GameUpdateRestartDelayMins} minutes to update to version {latestVersion}.";
                     _log.Debug(message);
                     chatManager.SendMessageAsOther("Server", message);
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(TorchBase.Instance.Config.GameUpdateRestartDelayMins), _cancellationTokenSource.Token);
+                await Task.Delay(TimeSpan.FromMinutes(Torch.Config.GameUpdateRestartDelayMins), _cancellationTokenSource.Token);
 
                 // Restart the server
                 Torch.Restart();

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
-using System.Windows.Documents;
 using NLog;
 using Torch.Managers.PatchManager.MSIL;
 
@@ -29,6 +28,7 @@ namespace Torch.Managers.PatchManager.Transpile
             foreach (MethodInfo transpiler in transpilers)
             {
                 var paramList = new List<object>();
+
                 foreach (var parameter in transpiler.GetParameters())
                 {
                     if (parameter.Name.Equals("__methodBody"))
@@ -40,11 +40,10 @@ namespace Torch.Managers.PatchManager.Transpile
                     else if (parameter.ParameterType == typeof(IEnumerable<MsilInstruction>))
                         paramList.Add(methodContent);
                     else
-                        throw new ArgumentException(
-                            $"Bad transpiler parameter type {parameter.ParameterType.FullName} {parameter.Name}");
+                        throw new ArgumentException($"Bad transpiler parameter type {parameter.ParameterType.FullName} {parameter.Name}");
                 }
 
-                methodContent = (IEnumerable<MsilInstruction>) transpiler.Invoke(null, paramList.ToArray());
+                methodContent = (IEnumerable<MsilInstruction>)transpiler.Invoke(null, paramList.ToArray());
             }
 
             return FixBranchAndReturn(methodContent, retLabel);
@@ -56,7 +55,8 @@ namespace Torch.Managers.PatchManager.Transpile
             var offsets = new int[instructions.Length];
             // Calc worst case offsets
             {
-                var j = 0;
+                int j = 0;
+
                 for (var i = 0; i < instructions.Length; i++)
                 {
                     offsets[i] = j;
@@ -66,22 +66,28 @@ namespace Torch.Managers.PatchManager.Transpile
 
             // Perform label markup
             var targets = new Dictionary<MsilLabel, int>();
+
             for (var i = 0; i < instructions.Length; i++)
+            {
                 foreach (var label in instructions[i].Labels)
                 {
                     if (targets.TryGetValue(label, out var other))
                         _log.Warn($"Label {label} is applied to ({i}: {instructions[i]}) and ({other}: {instructions[other]})");
+
                     targets[label] = i;
                 }
+            }
 
             // Simplify branch instructions
             for (var i = 0; i < instructions.Length; i++)
             {
                 var existing = instructions[i];
+
                 if (existing.Operand is MsilOperandBrTarget brOperand && _longToShortBranch.TryGetValue(existing.OpCode, out var shortOpcode))
                 {
                     var targetIndex = targets[brOperand.Target];
                     var delta = offsets[targetIndex] - offsets[i];
+
                     if (sbyte.MinValue < delta && delta < sbyte.MaxValue)
                         instructions[i] = instructions[i].CopyWith(shortOpcode);
                 }
@@ -90,27 +96,30 @@ namespace Torch.Managers.PatchManager.Transpile
             for (var i = 0; i < instructions.Length; i++)
             {
                 MsilInstruction il = instructions[i];
+
                 foreach (var tro in il.TryCatchOperations)
+                {
                     switch (tro.Type)
                     {
-                        case MsilTryCatchOperationType.BeginExceptionBlock:
-                            target.BeginExceptionBlock();
-                            break;
-                        case MsilTryCatchOperationType.BeginClauseBlock:
-                            target.BeginCatchBlock(tro.CatchType);
-                            break;
-                        case MsilTryCatchOperationType.BeginFaultBlock:
-                            target.BeginFaultBlock();
-                            break;
-                        case MsilTryCatchOperationType.BeginFinallyBlock:
-                            target.BeginFinallyBlock();
-                            break;
-                        case MsilTryCatchOperationType.EndExceptionBlock:
-                            target.EndExceptionBlock();
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
+                    case MsilTryCatchOperationType.BeginExceptionBlock:
+                        target.BeginExceptionBlock();
+                        break;
+                    case MsilTryCatchOperationType.BeginClauseBlock:
+                        target.BeginCatchBlock(tro.CatchType);
+                        break;
+                    case MsilTryCatchOperationType.BeginFaultBlock:
+                        target.BeginFaultBlock();
+                        break;
+                    case MsilTryCatchOperationType.BeginFinallyBlock:
+                        target.BeginFinallyBlock();
+                        break;
+                    case MsilTryCatchOperationType.EndExceptionBlock:
+                        target.EndExceptionBlock();
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                     }
+                }
 
                 foreach (MsilLabel label in il.Labels)
                     target.MarkLabel(label.LabelFor(target));
@@ -121,15 +130,18 @@ namespace Torch.Managers.PatchManager.Transpile
                 if (il.OpCode == OpCodes.Endfilter && ilNext != null &&
                     ilNext.TryCatchOperations.Any(x => x.Type == MsilTryCatchOperationType.BeginClauseBlock))
                     continue;
+
                 if ((il.OpCode == OpCodes.Leave || il.OpCode == OpCodes.Leave_S) && ilNext != null &&
                     ilNext.TryCatchOperations.Any(x => x.Type == MsilTryCatchOperationType.EndExceptionBlock ||
                                                        x.Type == MsilTryCatchOperationType.BeginClauseBlock ||
                                                        x.Type == MsilTryCatchOperationType.BeginFaultBlock ||
                                                        x.Type == MsilTryCatchOperationType.BeginFinallyBlock))
                     continue;
+
                 if ((il.OpCode == OpCodes.Leave || il.OpCode == OpCodes.Leave_S || il.OpCode == OpCodes.Endfinally) &&
                     ilNext != null && ilNext.TryCatchOperations.Any(x => x.Type == MsilTryCatchOperationType.EndExceptionBlock))
                     continue;
+
                 if (il.OpCode == OpCodes.Endfinally && ilNext != null &&
                     ilNext.TryCatchOperations.Any(x => x.Type == MsilTryCatchOperationType.EndExceptionBlock))
                     continue;
@@ -144,20 +156,26 @@ namespace Torch.Managers.PatchManager.Transpile
         /// <summary>
         /// Analyzes the integrity of a set of instructions.
         /// </summary>
-        /// <param name="level">default logging level</param>
+        /// <param name="log"></param>
         /// <param name="instructions">instructions</param>
+        /// <param name="offests"></param>
         public static void IntegrityAnalysis(PatchUtilities.DelPrintIntegrityInfo log, IReadOnlyList<MsilInstruction> instructions, bool offests = false)
         {
             var targets = new Dictionary<MsilLabel, int>();
+
             for (var i = 0; i < instructions.Count; i++)
+            {
                 foreach (var label in instructions[i].Labels)
                 {
                     if (targets.TryGetValue(label, out var other))
                         _log.Warn($"Label {label} is applied to ({i}: {instructions[i]}) and ({other}: {instructions[other]})");
+
                     targets[label] = i;
                 }
+            }
 
             var simpleLabelNames = new Dictionary<MsilLabel, string>();
+
             foreach (var lbl in targets.OrderBy(x => x.Value))
                 simpleLabelNames.Add(lbl.Key, "L" + simpleLabelNames.Count);
 
@@ -173,11 +191,15 @@ namespace Torch.Managers.PatchManager.Transpile
                 var k = instructions[i];
                 var prevDepth = i > 0 ? tryCatchDepth[i] : 0;
                 var currentDepth = prevDepth;
+
                 foreach (var tro in k.TryCatchOperations)
+                {
                     if (tro.Type == MsilTryCatchOperationType.BeginExceptionBlock)
                         currentDepth++;
                     else if (tro.Type == MsilTryCatchOperationType.EndExceptionBlock)
                         currentDepth--;
+                }
+
                 tryCatchDepth[i + 1] = currentDepth;
             }
 
@@ -186,11 +208,14 @@ namespace Torch.Managers.PatchManager.Transpile
                 var tryCatchDepthSelf = tryCatchDepth[i];
                 var k = instructions[i];
                 var line = (data[i] ?? (data[i] = new StringBuilder())).Clear();
+
                 foreach (var tro in k.TryCatchOperations)
                 {
                     if (tro.Type == MsilTryCatchOperationType.BeginExceptionBlock)
                         tryCatchDepthSelf++;
+
                     line.AppendLine($"{new string(' ', (tryCatchDepthSelf - 1) * 2)}// {tro.Type} ({tro.CatchType}) ({tro.NativeOffset:X4})");
+
                     if (tro.Type == MsilTryCatchOperationType.EndExceptionBlock)
                         tryCatchDepthSelf--;
                 }
@@ -205,6 +230,7 @@ namespace Torch.Managers.PatchManager.Transpile
                             labelStackSize[label] = otherStack = new Dictionary<int, int>();
 
                         otherStack[i - 1] = stack;
+
                         if (otherStack.Values.Distinct().Count() > 1 || (otherStack.Count == 1 && !otherStack.ContainsValue(stack)))
                         {
                             string otherDesc = string.Join(", ", otherStack.Select(x => $"{x.Key:X4}=>{x.Value}"));
@@ -220,9 +246,11 @@ namespace Torch.Managers.PatchManager.Transpile
                         line.AppendLine($"{tryCatchIndent}// \\/ Label {simpleLabelNames[label]}");
                         continue;
                     }
+
                     string desc = string.Join(", ", entry.Select(x => $"{x.Key:X4}=>{x.Value}"));
                     line.AppendLine($"{tryCatchIndent}// \\/ Label {simpleLabelNames[label]} has stack sizes {desc}");
-                    if (unreachable && entry.Any())
+
+                    if (unreachable && entry.Count != 0)
                     {
                         stack = entry.Values.First();
                         unreachable = false;
@@ -231,28 +259,35 @@ namespace Torch.Managers.PatchManager.Transpile
 
                 if (k.TryCatchOperations.Any(x => x.Type == MsilTryCatchOperationType.BeginClauseBlock))
                     stack++; // Exception info
+
                 stack += k.StackChange();
                 line.Append($"{tryCatchIndent}{(offests ? k.Offset : i):X4} S:{stack:D2} dS:{k.StackChange():+0;-#}\t{k.OpCode}\t");
+
                 if (k.Operand is MsilOperandBrTarget bri)
                     line.Append(simpleLabelNames[bri.Target]);
                 else
                     line.Append(k.Operand);
+
                 line.AppendLine($"\t{(unreachable ? "\t// UNREACHABLE" : "")}");
+
                 MsilLabel[] branchTargets = null;
+
                 if (k.Operand is MsilOperandBrTarget br)
-                    branchTargets = new[] {br.Target};
+                    branchTargets = new[] { br.Target };
                 else if (k.Operand is MsilOperandSwitch swi)
                     branchTargets = swi.Labels;
 
                 if (branchTargets != null)
                 {
                     var foundUnprocessed = false;
+
                     foreach (var brTarget in branchTargets)
                     {
                         if (!labelStackSize.TryGetValue(brTarget, out Dictionary<int, int> otherStack))
                             labelStackSize[brTarget] = otherStack = new Dictionary<int, int>();
 
                         otherStack[i] = stack;
+
                         if (otherStack.Values.Distinct().Count() > 1 || (otherStack.Count == 1 && !otherStack.ContainsValue(stack)))
                         {
                             string otherDesc = string.Join(", ", otherStack.Select(x => $"{x.Key:X4}=>{x.Value}"));
@@ -277,14 +312,17 @@ namespace Torch.Managers.PatchManager.Transpile
             }
 
             foreach (var k in data)
-            foreach (var line in k.ToString().Split('\n'))
             {
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
-                if (line.StartsWith("WARN", StringComparison.OrdinalIgnoreCase))
-                    log(true, line.Substring(4).Trim());
-                else
-                    log(false, line.Trim('\n', '\r'));
+                foreach (var line in k.ToString().Split('\n'))
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    if (line.StartsWith("WARN", StringComparison.OrdinalIgnoreCase))
+                        log(true, line.Substring(4).Trim());
+                    else
+                        log(false, line.Trim('\n', '\r'));
+                }
             }
         }
 
@@ -305,7 +343,9 @@ namespace Torch.Managers.PatchManager.Transpile
                     yield return result;
                 }
                 else
+                {
                     yield return i;
+                }
             }
         }
 
@@ -316,14 +356,17 @@ namespace Torch.Managers.PatchManager.Transpile
         {
             _shortToLongBranch = new Dictionary<OpCode, OpCode>();
             _longToShortBranch = new Dictionary<OpCode, OpCode>();
+
             foreach (var field in typeof(OpCodes).GetFields(BindingFlags.Static | BindingFlags.Public))
             {
-                var opcode = (OpCode) field.GetValue(null);
+                var opcode = (OpCode)field.GetValue(null);
+
                 if (opcode.OperandType == OperandType.ShortInlineBrTarget &&
                     opcode.Name.EndsWith(".s", StringComparison.OrdinalIgnoreCase))
                 {
-                    var other = (OpCode?) typeof(OpCodes).GetField(field.Name.Substring(0, field.Name.Length - 2),
+                    var other = (OpCode?)typeof(OpCodes).GetField(field.Name.Substring(0, field.Name.Length - 2),
                         BindingFlags.Static | BindingFlags.Public)?.GetValue(null);
+
                     if (other.HasValue && other.Value.OperandType == OperandType.InlineBrTarget)
                     {
                         _shortToLongBranch.Add(opcode, other.Value);
