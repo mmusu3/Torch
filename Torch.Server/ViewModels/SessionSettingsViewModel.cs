@@ -1,14 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using Torch;
-using Torch.Collections;
 using Torch.Views;
 using VRage.Game;
 using VRage.Library.Utils;
-using VRage.Serialization;
 
 namespace Torch.Server.ViewModels
 {
@@ -36,11 +30,17 @@ namespace Torch.Server.ViewModels
         [Torch.Views.Display(Description = "The multiplier for refinery speed.", Name = "Refinery Speed", GroupName = "Multipliers")]
         public float RefinerySpeedMultiplier { get => _settings.RefinerySpeedMultiplier; set => SetValue(ref _settings.RefinerySpeedMultiplier, value); }
 
+        [Display(Name = "Harvest Ratio Multiplier", Description = "Harvest ratio multiplier for drills.", GroupName = "Multipliers")]
+        public float HarvestRatioMultiplier { get => _settings.HarvestRatioMultiplier; set => SetValue(ref _settings.HarvestRatioMultiplier, value); }
+
         [Torch.Views.Display(Description = "The maximum number of connected players.", Name = "Max Players", GroupName = "Players")]
         public short MaxPlayers { get => _settings.MaxPlayers; set => SetValue(ref _settings.MaxPlayers, value); }
 
         [Torch.Views.Display(Description = "The maximum number of existing floating objects.", Name = "Max Floating Objects", GroupName = "Environment")]
         public short MaxFloatingObjects { get => _settings.MaxFloatingObjects; set => SetValue(ref _settings.MaxFloatingObjects, value); }
+
+        [Display(Name = "Bot Limit", Description = "Maximum number of organic bots in the world.", GroupName = "Environment")]
+        public int TotalBotLimit { get => _settings.TotalBotLimit; set => SetValue(ref _settings.TotalBotLimit, value); }
 
         [Torch.Views.Display(Description = "The maximum number of backup saves.", Name = "Max Backup Saves", GroupName = "Others")]
         public short MaxBackupSaves { get => _settings.MaxBackupSaves; set => SetValue(ref _settings.MaxBackupSaves, value); }
@@ -53,6 +53,9 @@ namespace Torch.Server.ViewModels
 
         [Torch.Views.Display(Description = "The total number of Performance Cost Units in the world.", Name = "World PCU", GroupName = "Block Limits")]
         public int TotalPCU { get => _settings.TotalPCU; set => SetValue(ref _settings.TotalPCU, value); }
+
+        [Display(Name = "Pirate PCU", Description = "Number of Performance Cost Units allocated for pirate faction.", GroupName = "Block Limits")]
+        public int PiratePCU { get => _settings.PiratePCU; set => SetValue(ref _settings.PiratePCU, value); }
 
         [Torch.Views.Display(Description = "The maximum number of existing factions in the world.", Name = "Max Factions Count", GroupName = "Block Limits")]
         public int MaxFactionsCount { get => _settings.MaxFactionsCount; set => SetValue(ref _settings.MaxFactionsCount, value); }
@@ -124,13 +127,13 @@ namespace Torch.Server.ViewModels
 
         [Torch.Views.Display(Description = "Enables respawn screen.", Name = "Enable Respawn Screen in the Game", GroupName = "Players")]
         public bool StartInRespawnScreen { get => _settings.StartInRespawnScreen; set => SetValue(ref _settings.StartInRespawnScreen, value); }
-        
+
         [Torch.Views.Display(Description = "Enables research.", Name = "Enable Research", GroupName = "Players")]
         public bool EnableResearch { get => _settings.EnableResearch; set => SetValue(ref _settings.EnableResearch, value); }
-        
+
         [Torch.Views.Display(Description = "Enables Good.bot hints.", Name = "Enable Good.bot hints", GroupName = "Players")]
         public bool EnableGoodBotHints { get => _settings.EnableGoodBotHints; set => SetValue(ref _settings.EnableGoodBotHints, value); }
-        
+
         [Torch.Views.Display(Description = "Enables infinite ammunition in survival game mode.", Name = "Enable Infinite Ammunition in Survival", GroupName = "Others")]
         public bool InfiniteAmmo { get => _settings.InfiniteAmmo; set => SetValue(ref _settings.InfiniteAmmo, value); }
 
@@ -173,7 +176,7 @@ namespace Torch.Server.ViewModels
 
         [Torch.Views.Display(Description = "Enables random encounters in the world.", Name = "Enable Encounters", GroupName = "NPCs")]
         public bool EnableEncounters { get => _settings.EnableEncounters; set => SetValue(ref _settings.EnableEncounters, value); }
-        
+
         [Torch.Views.Display(Description = "Enables possibility of converting grid to station.", Name = "Enable Convert to Station", GroupName = "Others")]
         public bool EnableConvertToStation { get => _settings.EnableConvertToStation; set => SetValue(ref _settings.EnableConvertToStation, value); }
 
@@ -243,18 +246,6 @@ namespace Torch.Server.ViewModels
         [Torch.Views.Display(Description = "Enables voxel hand.", Name = "Enable voxel hand", GroupName = "Others")]
         public bool EnableVoxelHand { get => _settings.EnableVoxelHand; set => SetValue(ref _settings.EnableVoxelHand, value); }
 
-        [Torch.Views.Display(Description = "Enables trash removal system.", Name = "Trash Removal Enabled", GroupName = "Trash Removal")]
-        public bool TrashRemovalEnabled { get => _settings.TrashRemovalEnabled; set => SetValue(ref _settings.TrashRemovalEnabled, value); }
-
-        [Torch.Views.Display(Description = "Defines flags for trash removal system.", Name = "Trash Removal Flags", GroupName = "Trash Removal")]
-        public MyTrashRemovalFlags TrashFlagsValue { get => (MyTrashRemovalFlags)_settings.TrashFlagsValue; set => SetValue(ref _settings.TrashFlagsValue, (int)value); }
-
-        [Torch.Views.Display(Description = "Defines block count threshold for trash removal system.", Name = "Block Count Threshold", GroupName = "Trash Removal")]
-        public int BlockCountThreshold { get => _settings.BlockCountThreshold; set => SetValue(ref _settings.BlockCountThreshold, value); }
-
-        [Torch.Views.Display(Description = "Defines player distance threshold for trash removal system.", Name = "Player Distance Threshold [m]", GroupName = "Trash Removal")]
-        public float PlayerDistanceThreshold { get => _settings.PlayerDistanceThreshold; set => SetValue(ref _settings.PlayerDistanceThreshold, value); }
-
         [Torch.Views.Display(Description = "By setting this, server will keep number of grids around this value. \n !WARNING! It ignores Powered and Fixed flags, Block Count and lowers Distance from player.\n Set to 0 to disable.", Name = "Optimal Grid Count", GroupName = "Trash Removal")]
         public int OptimalGridCount { get => _settings.OptimalGridCount; set => SetValue(ref _settings.OptimalGridCount, value); }
 
@@ -269,42 +260,42 @@ namespace Torch.Server.ViewModels
 
         [Torch.Views.Display(Description = "Enables automatic respawn at nearest available respawn point.", Name = "Enable Auto Respawn", GroupName = "Players")]
         public bool EnableAutoRespawn { get => _settings.EnableAutorespawn; set => SetValue(ref _settings.EnableAutorespawn, value); }
-        
+
         [Torch.Views.Display(Description = "The number of NPC factions generated on the start of the world.", Name = "NPC Factions Count", GroupName = "NPCs")]
         public int TradeFactionsCount { get => _settings.TradeFactionsCount; set => SetValue(ref _settings.TradeFactionsCount, value); }
-        
+
         [Torch.Views.Display(Description = "The inner radius [m] (center is in 0,0,0), where stations can spawn. Does not affect planet-bound stations (surface Outposts and Orbital stations).", Name = "Stations Inner Radius", GroupName = "NPCs")]
         public double StationsDistanceInnerRadius { get => _settings.StationsDistanceInnerRadius; set => SetValue(ref _settings.StationsDistanceInnerRadius, value); }
 
         [Torch.Views.Display(Description = "The outer radius [m] (center is in 0,0,0), where stations can spawn. Does not affect planet-bound stations (surface Outposts and Orbital stations).", Name = "Stations Outer Radius Start", GroupName = "NPCs")]
         public double StationsDistanceOuterRadiusStart { get => _settings.StationsDistanceOuterRadiusStart; set => SetValue(ref _settings.StationsDistanceOuterRadiusStart, value); }
-        
+
         [Torch.Views.Display(Description = "The outer radius [m] (center is in 0,0,0), where stations can spawn. Does not affect planet-bound stations (surface Outposts and Orbital stations).", Name = "Stations Outer Radius End", GroupName = "NPCs")]
         public double StationsDistanceOuterRadiusEnd { get => _settings.StationsDistanceOuterRadiusEnd; set => SetValue(ref _settings.StationsDistanceOuterRadiusEnd, value); }
-        
+
         [Torch.Views.Display(Description = "Time period between two economy updates in seconds.", Name = "Economy tick time", GroupName = "NPCs")]
         public int EconomyTickInSeconds { get => _settings.EconomyTickInSeconds; set => SetValue(ref _settings.EconomyTickInSeconds, value); }
-        
+
         [Torch.Views.Display(Description = "If enabled bounty contracts will be available on stations.", Name = "Enable Bounty Contracts", GroupName = "Players")]
         public bool EnableBountyContracts { get => _settings.EnableBountyContracts; set => SetValue(ref _settings.EnableBountyContracts, value); }
-        
+
         [Torch.Views.Display(Description = "Resource deposits count coefficient for generated world content (voxel generator version > 2).", Name = "Deposits Count Coefficient", GroupName = "Environment")]
         public float DepositsCountCoefficient { get => _settings.DepositsCountCoefficient; set => SetValue(ref _settings.DepositsCountCoefficient, value); }
-        
+
         [Torch.Views.Display(Description = "Resource deposit size denominator for generated world content (voxel generator version > 2).", Name = "Deposit Size Denominator", GroupName = "Environment")]
-        public float DepositSideDenominator { get => _settings.DepositSizeDenominator; set => SetValue(ref _settings.DepositSizeDenominator, value); }
-        
+        public float DepositSizeDenominator { get => _settings.DepositSizeDenominator; set => SetValue(ref _settings.DepositSizeDenominator, value); }
+
         [Torch.Views.Display(Description = "Enables economy features.", Name = "Enable Economy", GroupName = "NPCs")]
         public bool EnableEconomy { get => _settings.EnableEconomy; set => SetValue(ref _settings.EnableEconomy, value); }
-        
+
         [Torch.Views.Display(Description = "Enables system for voxel reverting.", Name = "Enable Voxel Reverting", GroupName = "Trash Removal")]
         public bool VoxelTrashRemovalEnabled { get => _settings.VoxelTrashRemovalEnabled; set => SetValue(ref _settings.VoxelTrashRemovalEnabled, value); }
-        
+
         [Torch.Views.Display(Description = "Allows super gridding exploit to be used.", Name = "Enable Supergridding", GroupName = "Others")]
         public bool EnableSupergridding { get => _settings.EnableSupergridding; set => SetValue(ref _settings.EnableSupergridding, value); }
-        
+
         [Torch.Views.Display(Description = "Enables Selective Physics", Name = "Enable Selective Physics", GroupName = "Others")]
-        public bool EnableSelectivePhysics { get => _settings.EnableSelectivePhysicsUpdates; set => SetValue(ref _settings.EnableSelectivePhysicsUpdates, value); }
+        public bool EnableSelectivePhysicsUpdates { get => _settings.EnableSelectivePhysicsUpdates; set => SetValue(ref _settings.EnableSelectivePhysicsUpdates, value); }
 
         [Torch.Views.Display(Description = "Allows steam's family sharing", Name = "Enable Family Sharing", GroupName = "Players")]
         public bool EnableFamilySharing { get => _settings.FamilySharing; set => SetValue(ref _settings.FamilySharing, value); }
@@ -312,8 +303,144 @@ namespace Torch.Server.ViewModels
         [Torch.Views.Display(Description = "Enables PCU trading", Name = "Enable PCU Trading", GroupName = "Block Limits")]
         public bool EnablePCUTrading { get => _settings.EnablePcuTrading; set => SetValue(ref _settings.EnablePcuTrading, value); }
 
+        [Display(Name = "Enable blueprint share", Description = "Enable sharing of blueprints", GroupName = "Players")]
+        public bool BlueprintShare { get => _settings.BlueprintShare; set => SetValue(ref _settings.BlueprintShare, value); }
+
+        [Display(Name = "Share blueprint timeout", Description = "Timeout between sharing blueprints", GroupName = "Players")]
+        public int BlueprintShareTimeout { get => _settings.BlueprintShareTimeout; set => SetValue(ref _settings.BlueprintShareTimeout, value); }
+
+        #region Trash Removal
+
+        [Display(Name = "Remove Old Identities (h)", Description = "Defines time in hours after which inactive identities that do not own any grids will be removed. Set 0 to disable.", GroupName = "Trash Removal")]
+        public int RemoveOldIdentitiesH { get => _settings.RemoveOldIdentitiesH; set => SetValue(ref _settings.RemoveOldIdentitiesH, value); }
+
+        [Torch.Views.Display(Description = "Enables trash removal system.", Name = "Trash Removal Enabled", GroupName = "Trash Removal")]
+        public bool TrashRemovalEnabled { get => _settings.TrashRemovalEnabled; set => SetValue(ref _settings.TrashRemovalEnabled, value); }
+
+        [Display(Name = "Stop Grids Period (m)", Description = "Defines time in minutes after which grids will be stopped if far from player. Set 0 to disable.", GroupName = "Trash Removal")]
+        public int StopGridsPeriodMin { get => _settings.StopGridsPeriodMin; set => SetValue(ref _settings.StopGridsPeriodMin, value); }
+
+        [Torch.Views.Display(Description = "Defines flags for trash removal system.", Name = "Trash Removal Flags", GroupName = "Trash Removal")]
+        public MyTrashRemovalFlags TrashFlagsValue { get => (MyTrashRemovalFlags)_settings.TrashFlagsValue; set => SetValue(ref _settings.TrashFlagsValue, (int)value); }
+
+        [Display(Name = "AFK Timeout", Description = "Defines time in minutes after which inactive players will be kicked. 0 is off.", GroupName = "Trash Removal")]
+        public int AFKTimeountMin { get => _settings.AFKTimeountMin; set => SetValue(ref _settings.AFKTimeountMin, value); }
+
+        [Torch.Views.Display(Description = "Defines block count threshold for trash removal system.", Name = "Block Count Threshold", GroupName = "Trash Removal")]
+        public int BlockCountThreshold { get => _settings.BlockCountThreshold; set => SetValue(ref _settings.BlockCountThreshold, value); }
+
+        [Torch.Views.Display(Description = "Defines player distance threshold for trash removal system.", Name = "Player Distance Threshold [m]", GroupName = "Trash Removal")]
+        public float PlayerDistanceThreshold { get => _settings.PlayerDistanceThreshold; set => SetValue(ref _settings.PlayerDistanceThreshold, value); }
+
+        [Display(Name = "Distance voxel from player (m)", Description = "Only voxel chunks that are further from player will be reverted.", GroupName = "Trash Removal")]
+        public float VoxelPlayerDistanceThreshold { get => _settings.VoxelPlayerDistanceThreshold; set => SetValue(ref _settings.VoxelPlayerDistanceThreshold, value); }
+
+        [Display(Name = "Distance voxel from grid (m)", Description = "Only voxel chunks that are further from any grid will be reverted.", GroupName = "Trash Removal")]
+        public float VoxelGridDistanceThreshold { get => _settings.VoxelGridDistanceThreshold; set => SetValue(ref _settings.VoxelGridDistanceThreshold, value); }
+
+        [Display(Name = "Voxel age (min)", Description = "Only voxel chunks that have been modified longer time age may be reverted.", GroupName = "Trash Removal")]
+        public int VoxelAgeThreshold { get => _settings.VoxelAgeThreshold; set => SetValue(ref _settings.VoxelAgeThreshold, value); }
+
+        [Display(Name = "Platform Trash Setting Override", Description = "Enable trash settings to be overriden by console specific settings", GroupName = "Trash Removal")]
+        public bool EnableTrashSettingsPlatformOverride { get => _settings.EnableTrashSettingsPlatformOverride; set => SetValue(ref _settings.EnableTrashSettingsPlatformOverride, value); }
+
+        #endregion
+
+        #region Environment
+
+        [Display(Name = "Adjustable Max Vehicle Speed", GroupName = "Environment")]
+        //[Browsable(false)]
+        public bool AdjustableMaxVehicleSpeed { get => _settings.AdjustableMaxVehicleSpeed; set => SetValue(ref _settings.AdjustableMaxVehicleSpeed, value); }
+
+        [Display(Name = "Prefetch Voxels Range Limit", Description = "Defines at what maximum distance weapons could interact with voxels.", GroupName = "Environment")]
+        public long PrefetchShapeRayLengthLimit { get => _settings.PrefetchShapeRayLengthLimit; set => SetValue(ref _settings.PrefetchShapeRayLengthLimit, value); }
+
+        #endregion
+
+        #region Others
+
         [Torch.Views.Display(Description = "Enables system for weather", Name = "Enable Weather System", GroupName = "Others")]
         public bool EnableWeatherSystem { get => _settings.WeatherSystem; set => SetValue(ref _settings.WeatherSystem, value); }
+
+        [Display(Name = "Enable predefined asteroids", Description = "To conserve memory, predefined asteroids has to be disabled on consoles.", GroupName = "Others")]
+        public bool PredefinedAsteroids { get => _settings.PredefinedAsteroids; set => SetValue(ref _settings.PredefinedAsteroids, value); }
+
+        [Display(Name = "Use Console PCU", Description = "To conserve memory, some of the blocks have different PCU values for consoles.", GroupName = "Others")]
+        public bool UseConsolePCU { get => _settings.UseConsolePCU; set => SetValue(ref _settings.UseConsolePCU, value); }
+
+        [Display(Name = "Max Planet Types", Description = "Limit maximum number of types of planets in the world.", GroupName = "Others")]
+        public int MaxPlanets { get => _settings.MaxPlanets; set => SetValue(ref _settings.MaxPlanets, value); }
+
+        [Display(Name = "Offensive Words Filtering", Description = "Filter offensive words from all input methods.", GroupName = "Others")]
+        public bool OffensiveWordsFiltering { get => _settings.OffensiveWordsFiltering; set => SetValue(ref _settings.OffensiveWordsFiltering, value); }
+
+        [Display(Name = "Enable match", Description = "Enable component handling the match", GroupName = "Others")]
+        public bool EnableMatchComponent { get => _settings.EnableMatchComponent; set => SetValue(ref _settings.EnableMatchComponent, value); }
+
+        [Display(Name = "PreMatch duration", Description = "Duration of PreMatch phase of the match", GroupName = "Others")]
+        public float PreMatchDuration { get => _settings.PreMatchDuration; set => SetValue(ref _settings.PreMatchDuration, value); }
+
+        [Display(Name = "Match duration", Description = "Duration of Match phase of the match", GroupName = "Others")]
+        public float MatchDuration { get => _settings.MatchDuration; set => SetValue(ref _settings.MatchDuration, value); }
+
+        [Display(Name = "PostMatch duration", Description = "Duration of PostMatch phase of the match", GroupName = "Others")]
+        public float PostMatchDuration { get => _settings.PostMatchDuration; set => SetValue(ref _settings.PostMatchDuration, value); }
+
+        [Display(Name = "Enable Team Score Counters", Description = "Show team scores at the top of the screen", GroupName = "Others")]
+        public bool EnableTeamScoreCounters { get => _settings.EnableTeamScoreCounters; set => SetValue(ref _settings.EnableTeamScoreCounters, value); }
+
+        [Display(Name = "Max Production Queue Length ", Description = "Maximum allowed length of a production queue. Can affect performance.", GroupName = "Others")]
+        public int MaxProductionQueueLength { get => _settings.MaxProductionQueueLength; set => SetValue(ref _settings.MaxProductionQueueLength, value); }
+
+        #endregion
+
+        #region PvP
+
+        [Display(Name = "Enable Friendly Fire", GroupName = "PvP")]
+        public bool EnableFriendlyFire { get => _settings.EnableFriendlyFire; set => SetValue(ref _settings.EnableFriendlyFire, value); }
+
+        [Display(Name = "Enable team balancing", GroupName = "PvP")]
+        public bool EnableTeamBalancing { get => _settings.EnableTeamBalancing; set => SetValue(ref _settings.EnableTeamBalancing, value); }
+
+        [Display(Name = "Match Restart When Empty", Description = "Server will restart after specified time [minutes], when it's empty after match started. Works only in PvP scenarios. When 0 feature is disabled.", GroupName = "PvP")]
+        public int MatchRestartWhenEmptyTime { get => _settings.MatchRestartWhenEmptyTime; set => SetValue(ref _settings.MatchRestartWhenEmptyTime, value); }
+
+        [Display(Name = "Enable Faction Voice Chat", Description = "Faction Voice Chat removes the need of antennas and broadcasting of the character for faction.", GroupName = "PvP")]
+        public bool EnableFactionVoiceChat { get => _settings.EnableFactionVoiceChat; set => SetValue(ref _settings.EnableFactionVoiceChat, value); }
+
+        [Display(Name = "Enemy Target Indicator Distance [m]", Description = "Defines the maximum distance to show the enemy target indicator.", GroupName = "PvP")]
+        public float EnemyTargetIndicatorDistance { get => _settings.EnemyTargetIndicatorDistance; set => SetValue(ref _settings.EnemyTargetIndicatorDistance, value); }
+
+        #endregion
+
+        #region Players
+
+        [Display(Name = "Character Speed Multiplier", GroupName = "Players")]
+        public float CharacterSpeedMultiplier { get => _settings.CharacterSpeedMultiplier; set => SetValue(ref _settings.CharacterSpeedMultiplier, value); }
+
+        [Display(Name = "Enable weapon recoil.", GroupName = "Players")]
+        public bool EnableRecoil { get => _settings.EnableRecoil; set => SetValue(ref _settings.EnableRecoil, value); }
+
+        [Display(Name = "Environment Damage Multiplier", Description = "This multiplier only applies for damage caused to the player by environment.", GroupName = "Players")]
+        public float EnvironmentDamageMultiplier { get => _settings.EnvironmentDamageMultiplier; set => SetValue(ref _settings.EnvironmentDamageMultiplier, value); }
+
+        [Display(Name = "Enable Gamepad Aim Assist", Description = "Enable aim assist for gamepad.", GroupName = "Players")]
+        public bool EnableGamepadAimAssist { get => _settings.EnableGamepadAimAssist; set => SetValue(ref _settings.EnableGamepadAimAssist, value); }
+
+        [Display(Name = "Backpack Despawn Time", Description = "Sets the timer (minutes) for the backpack to be removed from the world. Default is 5 minutes.", GroupName = "Players")]
+        public float BackpackDespawnTimer { get => _settings.BackpackDespawnTimer; set => SetValue(ref _settings.BackpackDespawnTimer, value); }
+
+        [Display(Name = "Show Faction Player Names", Description = "Shows player names above the head if they are in the same faction and personal broadcast is off.", GroupName = "Players")]
+        //[Browsable(false)]
+        public bool EnableFactionPlayerNames { get => _settings.EnableFactionPlayerNames; set => SetValue(ref _settings.EnableFactionPlayerNames, value); }
+
+        [Display(Name = "Enable Space Suit Respawn", Description = "Enables player to respawn in space suit", GroupName = "Players")]
+        public bool EnableSpaceSuitRespawn { get => _settings.EnableSpaceSuitRespawn; set => SetValue(ref _settings.EnableSpaceSuitRespawn, value); }
+
+        #endregion
+
+        [Display(Name = "Enable ORCA", Description = "Enable advanced Optimal Reciprocal Collision Avoidance", GroupName = "NPCs")]
+        public bool EnableOrca { get => _settings.EnableOrca; set => SetValue(ref _settings.EnableOrca, value); }
 
         public SessionSettingsViewModel(MyObjectBuilder_SessionSettings settings)
         {
