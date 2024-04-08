@@ -4,7 +4,6 @@
     <TargetFrameworks>net48;net8-windows</TargetFrameworks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWPF>true</UseWPF>
-    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <Platforms>x64</Platforms>
@@ -13,7 +12,7 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <DocumentationFile>$(OutputPath)\$(TargetFramework)\Torch.xml</DocumentationFile>
-    <NoWarn>1591</NoWarn>
+    <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
 
   <Import Project="..\Torch.Mod\Torch.Mod.projitems" Label="Shared" />

@@ -5,7 +5,7 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <LangVersion>latest</LangVersion>
     <Platforms>x64</Platforms>
-    <NoWarn>1591,0649</NoWarn>
+    <NoWarn>CS1591;CS0649</NoWarn>
     <OutputPath>..\bin-test\$(Platform)_$(Configuration)\</OutputPath>
   </PropertyGroup>
 

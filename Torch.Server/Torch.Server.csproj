@@ -5,7 +5,6 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
-    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
     <LangVersion>latest</LangVersion>
     <Platforms>x64</Platforms>
     <StartupObject>Torch.Server.Program</StartupObject>
@@ -15,6 +14,7 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <DocumentationFile>$(OutputPath)\$(TargetFramework)\Torch.Server.xml</DocumentationFile>
+    <NoWarn>$(NoWarn);CS0169;CS0649;CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -155,19 +155,15 @@
     <Compile Include="..\Versioning\AssemblyVersion.cs">
       <Link>Properties\AssemblyVersion.cs</Link>
     </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <AppDesigner Include="Properties\" />
-    <Resource Include="torchicon.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Remove="ServerManager.cs" />
     <Compile Remove="ViewModels\SessionSettingsViewModel1.cs" />
     <Compile Remove="Views\WorldSelectControl.xaml.cs" />
     <Page Remove="Views\WorldSelectControl.xaml" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="torchicon.ico" />
+  </ItemGroup>
   <ItemGroup>
     <Content Include="..\NLog-user.config" Link="NLog-user.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
