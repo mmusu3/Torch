@@ -1,37 +1,30 @@
 ﻿using System;
-using System.ComponentModel;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Threading;
-using System.Runtime.CompilerServices;
 using NLog;
-using Sandbox.Engine.Networking;
-using VRage.Game;
-using Torch.Server.Annotations;
-using Torch.Utils;
 using Torch.Utils.SteamWorkshopTools;
+using VRage.Game;
 
 namespace Torch.Server.ViewModels
 {
     /// <summary>
-    /// Wrapper around VRage.Game.Objectbuilder_Checkpoint.ModItem 
+    /// Wrapper around VRage.Game.Objectbuilder_Checkpoint.ModItem
     /// that holds additional meta information
     /// (e.g. workshop description)
     /// </summary>
     public class ModItemInfo : ViewModel
     {
-        MyObjectBuilder_Checkpoint.ModItem _modItem;
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+
+        MyObjectBuilder_Checkpoint.ModItem _modItem;
 
         /// <summary>
         /// Human friendly name of the mod
         /// </summary>
         public string FriendlyName
         {
-            get { return _modItem.FriendlyName;  }
-            set {
+            get { return _modItem.FriendlyName; }
+            set
+            {
                 SetValue(ref _modItem.FriendlyName, value);
             }
         }
@@ -114,15 +107,15 @@ namespace Torch.Server.ViewModels
         {
             if (UgcService.ToLower() == "mod.io")
                 return true;
-            
-            var msg = "";
+
             var workshopService = WebAPI.Instance;
             PublishedItemDetails modInfo = null;
+
             try
             {
                 modInfo = (await workshopService.GetPublishedFileDetails(new ulong[] { PublishedFileId }))?[PublishedFileId];
             }
-            catch( Exception e ) 
+            catch (Exception e)
             {
                 Log.Error(e.Message);
             }

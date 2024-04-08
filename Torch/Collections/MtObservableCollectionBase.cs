@@ -4,10 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Torch.Utils;
 
 namespace Torch.Collections
@@ -31,10 +28,10 @@ namespace Torch.Collections
             _flushEventQueue = new Timer(FlushEventQueue);
         }
 
-        ~MtObservableCollectionBase()
-        {
-            // normally we'd call Timer.Dispose() here but it's a managed handle, and the finalizer for the timerholder class does it
-        }
+        //~MtObservableCollectionBase()
+        //{
+        //    // normally we'd call Timer.Dispose() here but it's a managed handle, and the finalizer for the timerholder class does it
+        //}
 
         /// <summary>
         /// Should this observable collection actually dispatch events.
@@ -93,6 +90,7 @@ namespace Torch.Collections
             public void Dispose()
             {
                 if (Interlocked.Decrement(ref _depth) == 0)
+                {
                     using (_collection.Lock.WriteUsing())
                     {
                         _collection.NotificationsEnabled = true;
@@ -101,6 +99,7 @@ namespace Torch.Collections
                         _collection.OnCollectionChanged(
                             new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
                     }
+                }
             }
         }
 
@@ -108,6 +107,7 @@ namespace Torch.Collections
         {
             if (!NotificationsEnabled)
                 return;
+
             _propertyEventQueue.Enqueue(propName);
             _flushEventQueue?.Change(_eventRaiseDelay, -1);
         }
@@ -116,6 +116,7 @@ namespace Torch.Collections
         {
             if (!NotificationsEnabled)
                 return;
+
             _collectionEventQueue.Enqueue(e);
             // In half a second, flush the events
             _flushEventQueue?.Change(_eventRaiseDelay, -1);
@@ -124,10 +125,8 @@ namespace Torch.Collections
         private readonly Timer _flushEventQueue;
         private const int _eventRaiseDelay = 50;
 
-        private readonly ConcurrentQueue<NotifyCollectionChangedEventArgs> _collectionEventQueue =
-            new ConcurrentQueue<NotifyCollectionChangedEventArgs>();
-
-        private readonly ConcurrentQueue<string> _propertyEventQueue = new ConcurrentQueue<string>();
+        private readonly ConcurrentQueue<NotifyCollectionChangedEventArgs> _collectionEventQueue = new();
+        private readonly ConcurrentQueue<string> _propertyEventQueue = new();
 
         private void FlushEventQueue(object data)
         {
@@ -136,22 +135,26 @@ namespace Torch.Collections
                 _propertyChangedEvent.Raise(this, new PropertyChangedEventArgs(prop));
 
             // :/, but works better
-            bool reset = _collectionEventQueue.Count > 0;
+            bool reset = !_collectionEventQueue.IsEmpty;
+
             if (reset)
-                while (_collectionEventQueue.Count > 0)
-                    _collectionEventQueue.TryDequeue(out _);
+            {
+                while (_collectionEventQueue.TryDequeue(out _)) { }
+            }
             else
+            {
                 while (_collectionEventQueue.TryDequeue(out NotifyCollectionChangedEventArgs e))
                     _collectionChangedEvent.Raise(this, e);
+            }
 
             if (reset)
+            {
                 _collectionChangedEvent.Raise(this,
                     new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            }
         }
 
-        private readonly MtObservableEvent<PropertyChangedEventArgs, PropertyChangedEventHandler> _propertyChangedEvent
-            =
-            new MtObservableEvent<PropertyChangedEventArgs, PropertyChangedEventHandler>();
+        private readonly MtObservableEvent<PropertyChangedEventArgs, PropertyChangedEventHandler> _propertyChangedEvent = new();
 
         /// <inheritdoc/>
         public event PropertyChangedEventHandler PropertyChanged
@@ -168,10 +171,8 @@ namespace Torch.Collections
             }
         }
 
-        private readonly MtObservableEvent<NotifyCollectionChangedEventArgs, NotifyCollectionChangedEventHandler>
-            _collectionChangedEvent =
-                new MtObservableEvent<NotifyCollectionChangedEventArgs, NotifyCollectionChangedEventHandler>();
-        
+        private readonly MtObservableEvent<NotifyCollectionChangedEventArgs, NotifyCollectionChangedEventHandler> _collectionChangedEvent = new();
+
         /// <inheritdoc/>
         public event NotifyCollectionChangedEventHandler CollectionChanged
         {
@@ -205,7 +206,7 @@ namespace Torch.Collections
             private readonly WeakReference<List<TV>> _snapshot;
 
             /// <summary>
-            /// The <see cref="MtObservableCollection{TC,TV}._version"/> of the <see cref="_snapshot"/>
+            /// The <see cref="MtObservableCollectionBase{TV}._version"/> of the <see cref="_snapshot"/>
             /// </summary>
             private int _snapshotVersion;
 
@@ -235,6 +236,7 @@ namespace Torch.Collections
                         _snapshotRefCount = 0;
                         _snapshot.SetTarget(currentSnapshot);
                     }
+
                     return currentSnapshot;
                 }
             }
@@ -252,12 +254,14 @@ namespace Torch.Collections
                 internal Enumerator(ThreadView owner)
                 {
                     _owner = owner;
+
                     // Lock required since destructors run MT
                     lock (_owner)
                     {
                         _owner._snapshotRefCount++;
                         _backing = owner.GetSnapshot().GetEnumerator();
                     }
+
                     _disposed = false;
                 }
 
@@ -265,8 +269,10 @@ namespace Torch.Collections
                 {
                     // Lock required since destructors run MT
                     if (!_disposed && _owner != null)
+                    {
                         lock (_owner)
                             Dispose();
+                    }
                 }
 
                 public void Dispose()
@@ -279,15 +285,15 @@ namespace Torch.Collections
 
                 public bool MoveNext()
                 {
-                    if (_disposed)
-                        throw new ObjectDisposedException(nameof(Enumerator));
+                    if (_disposed) throw new ObjectDisposedException(nameof(Enumerator));
+
                     return _backing.MoveNext();
                 }
 
                 public void Reset()
                 {
-                    if (_disposed)
-                        throw new ObjectDisposedException(nameof(Enumerator));
+                    if (_disposed) throw new ObjectDisposedException(nameof(Enumerator));
+
                     _backing.Reset();
                 }
 
@@ -295,8 +301,8 @@ namespace Torch.Collections
                 {
                     get
                     {
-                        if (_disposed)
-                            throw new ObjectDisposedException(nameof(Enumerator));
+                        if (_disposed) throw new ObjectDisposedException(nameof(Enumerator));
+
                         return _backing.Current;
                     }
                 }

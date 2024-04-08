@@ -7,7 +7,6 @@ using NLog;
 using Torch.Utils;
 
 // ReSharper disable ConditionIsAlwaysTrueOrFalse
-#pragma warning disable 162 // unreachable code
 namespace Torch.Managers.PatchManager.Transpile
 {
     /// <summary>
@@ -30,6 +29,7 @@ namespace Torch.Managers.PatchManager.Transpile
         /// Creates a new logging IL generator backed by the given generator.
         /// </summary>
         /// <param name="backing">Backing generator</param>
+        /// <param name="level"></param>
         public LoggingIlGenerator(ILGenerator backing, LogLevel level)
         {
             Backing = backing;
@@ -43,7 +43,6 @@ namespace Torch.Managers.PatchManager.Transpile
             _log?.Log(_level, $"DclLoc\t{res.LocalIndex}\t=> {res.LocalType} {res.IsPinned}");
             return res;
         }
-
 
         /// <inheritdoc cref="ILGenerator.Emit(OpCode)"/>
         public void Emit(OpCode op)
@@ -163,8 +162,8 @@ namespace Torch.Managers.PatchManager.Transpile
             Backing.Emit(op, arg);
         }
 
-
         #region Exceptions
+
         /// <inheritdoc cref="ILGenerator.BeginExceptionBlock"/>
         public Label BeginExceptionBlock()
         {
@@ -206,6 +205,7 @@ namespace Torch.Managers.PatchManager.Transpile
             _log?.Log(_level, $"EndExceptionBlock");
             Backing.EndExceptionBlock();
         }
+
         #endregion
 
         /// <inheritdoc cref="ILGenerator.MarkLabel(Label)"/>
@@ -231,5 +231,4 @@ namespace Torch.Managers.PatchManager.Transpile
             _log?.Log(_level, $"// {comment}");
         }
     }
-#pragma warning restore 162
 }

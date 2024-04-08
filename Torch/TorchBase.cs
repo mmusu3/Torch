@@ -108,10 +108,14 @@ namespace Torch
         protected TorchBase(ITorchConfig config)
         {
             RegisterCoreAssembly(GetType().Assembly);
+
+#pragma warning disable CS0618 // Type or member is obsolete
             if (Instance != null)
                 throw new InvalidOperationException("A TorchBase instance already exists.");
 
             Instance = this;
+#pragma warning restore CS0618 // Type or member is obsolete
+
             Config = config;
 
             var versionString = Assembly.GetEntryAssembly()
@@ -123,11 +127,11 @@ namespace Torch
 
             TorchVersion = version;
 
-            RunArgs = new string[0];
-
+            RunArgs = Array.Empty<string>();
             Managers = new DependencyManager();
-
+#pragma warning disable CS0618 // Type or member is obsolete
             Plugins = new PluginManager(this);
+#pragma warning restore CS0618 // Type or member is obsolete
 
             var sessionManager = new TorchSessionManager(this);
             sessionManager.AddFactory((x) => Sync.IsServer ? new ChatManagerServer(this) : new ChatManagerClient(this));
@@ -137,7 +141,9 @@ namespace Torch
             Managers.AddManager(sessionManager);
             Managers.AddManager(new PatchManager(this));
             Managers.AddManager(new EventManager(this));
+#pragma warning disable CS0618 // Type or member is obsolete
             Managers.AddManager(Plugins);
+#pragma warning restore CS0618 // Type or member is obsolete
             TorchAPI.Instance = this;
 
             GameStateChanged += (game, state) =>
@@ -153,20 +159,20 @@ namespace Torch
             {
                 switch (state)
                 {
-                    case TorchSessionState.Loading:
-                        SessionLoading?.Invoke();
-                        break;
-                    case TorchSessionState.Loaded:
-                        SessionLoaded?.Invoke();
-                        break;
-                    case TorchSessionState.Unloading:
-                        SessionUnloading?.Invoke();
-                        break;
-                    case TorchSessionState.Unloaded:
-                        SessionUnloaded?.Invoke();
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(state), state, null);
+                case TorchSessionState.Loading:
+                    SessionLoading?.Invoke();
+                    break;
+                case TorchSessionState.Loaded:
+                    SessionLoaded?.Invoke();
+                    break;
+                case TorchSessionState.Unloading:
+                    SessionUnloading?.Invoke();
+                    break;
+                case TorchSessionState.Unloaded:
+                    SessionUnloaded?.Invoke();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
                 }
             };
         }
@@ -185,7 +191,7 @@ namespace Torch
 
         public bool IsOnGameThread()
         {
-            return Thread.CurrentThread.ManagedThreadId == MySandboxGame.Static.UpdateThread.ManagedThreadId;
+            return Environment.CurrentManagedThreadId == MySandboxGame.Static.UpdateThread.ManagedThreadId;
         }
 
         #region Game Actions
@@ -193,7 +199,6 @@ namespace Torch
         /// <summary>
         /// Invokes an action on the game thread.
         /// </summary>
-        /// <param name="action"></param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public void Invoke(Action action, [CallerMemberName] string caller = "")
         {
@@ -214,8 +219,10 @@ namespace Torch
 
             // ReSharper disable once ExplicitCallerInfoArgument
             Task task = InvokeAsync(action, caller);
+
             if (!task.Wait(timeoutMs))
                 throw new TimeoutException("The game action timed out");
+
             if (task.IsFaulted && task.Exception != null)
                 throw task.Exception;
         }
@@ -225,6 +232,7 @@ namespace Torch
         public Task<T> InvokeAsync<T>(Func<T> action, [CallerMemberName] string caller = "")
         {
             var ctx = new TaskCompletionSource<T>();
+
             MySandboxGame.Static.Invoke(() =>
             {
                 try
@@ -248,6 +256,7 @@ namespace Torch
         public Task InvokeAsync(Action action, [CallerMemberName] string caller = "")
         {
             var ctx = new TaskCompletionSource<bool>();
+
             MySandboxGame.Static.Invoke(() =>
             {
                 try
@@ -264,10 +273,11 @@ namespace Torch
                     Debug.Assert(ctx.Task.IsCompleted);
                 }
             }, caller);
+
             return ctx.Task;
         }
 
-#endregion
+        #endregion
 
         #region Torch Init/Destroy
 
@@ -321,8 +331,10 @@ namespace Torch
         {
             Managers.Detach();
             Game.SignalDestroy();
+
             if (!Game.WaitFor(VRageGame.GameState.Destroyed))
                 Log.Warn("Failed to wait for the game to be destroyed");
+
             Game = null;
         }
 
@@ -352,19 +364,23 @@ namespace Torch
             }
 
             Interlocked.Increment(ref _inProgressSaves);
+
             return TorchAsyncSaving.Save(this, timeoutMs).ContinueWith((task, torchO) =>
             {
-                var torch = (TorchBase) torchO;
+                var torch = (TorchBase)torchO;
                 Interlocked.Decrement(ref torch._inProgressSaves);
+
                 if (task.IsFaulted)
                 {
                     Log.Error(task.Exception, "Failed to save game");
                     return GameSaveResult.UnknownError;
                 }
+
                 if (task.Result != GameSaveResult.Success)
                     Log.Error($"Failed to save game: {task.Result}");
                 else
                     Log.Info("Saved game");
+
                 return task.Result;
             }, this, TaskContinuationOptions.RunContinuationsAsynchronously);
         }
@@ -373,8 +389,10 @@ namespace Torch
         public virtual void Start()
         {
             Game.SignalStart();
+
             if (!Game.WaitFor(VRageGame.GameState.Running))
                 Log.Warn("Failed to wait for the game to be started");
+
             Invoke(() => Thread.CurrentThread.CurrentUICulture = new CultureInfo("en-US"));
         }
 
@@ -383,6 +401,7 @@ namespace Torch
         {
             LogManager.Flush();
             Game.SignalStop();
+
             if (!Game.WaitFor(VRageGame.GameState.Stopped))
                 Log.Warn("Failed to wait for the game to be stopped");
         }
@@ -400,7 +419,6 @@ namespace Torch
         {
             Managers.GetManager<IPluginManager>().UpdatePlugins();
         }
-
 
         private TorchGameState _gameState = TorchGameState.Unloaded;
 
@@ -428,12 +446,14 @@ namespace Torch
         internal static void RegisterCoreAssembly(Assembly asm)
         {
             lock (_registeredCoreAssemblies)
+            {
                 if (_registeredCoreAssemblies.Add(asm))
                 {
                     ReflectedManager.Process(asm);
                     EventManager.AddDispatchShims(asm);
                     PatchManager.AddPatchShims(asm);
                 }
+            }
         }
 
         private static readonly HashSet<Assembly> _registeredAuxAssemblies = new HashSet<Assembly>();
@@ -447,11 +467,13 @@ namespace Torch
         internal static void RegisterAuxAssembly(Assembly asm)
         {
             lock (_registeredAuxAssemblies)
+            {
                 if (_registeredAuxAssemblies.Add(asm))
                 {
                     ReflectedManager.Process(asm);
                     PatchManager.AddPatchShims(asm);
                 }
+            }
         }
     }
 }

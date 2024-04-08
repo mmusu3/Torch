@@ -7,6 +7,7 @@ namespace Torch.API.Managers
         /// <summary>
         /// Removes a single manager from this dependency manager.
         /// </summary>
+        /// <param name="depManager"></param>
         /// <param name="managerType">The dependency type to remove</param>
         /// <returns>The manager that was removed, or null if one wasn't removed</returns>
         /// <exception cref="InvalidOperationException">When removing managers from an initialized dependency manager</exception>
@@ -25,6 +26,5 @@ namespace Torch.API.Managers
         {
             return depManager.RemoveManager(typeof(T));
         }
-
     }
 }

@@ -1,17 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Sandbox.Engine.Multiplayer;
 using Sandbox.Game.Gui;
-using Sandbox.Game.Multiplayer;
 using Torch.Utils;
 using VRage.Game;
-using VRage.Network;
-using VRage.Replication;
 using VRageMath;
-using VRageRender;
 
 namespace Torch.API.Managers
 {
@@ -25,7 +17,7 @@ namespace Torch.API.Managers
         #region Backwards compatibility
 
         [Obsolete]
-        public TorchChatMessage(string author, string message, string font = DEFAULT_FONT) 
+        public TorchChatMessage(string author, string message, string font = DEFAULT_FONT)
             : this(author, message, default, font) { }
 
         [Obsolete]
@@ -37,12 +29,13 @@ namespace Torch.API.Managers
             : this(authorSteamId, message, channel, target, default, font) { }
 
         #endregion
-        
+
         /// <summary>
         /// Creates a new torch chat message with the given author and message.
         /// </summary>
         /// <param name="author">Author's name</param>
         /// <param name="message">Message</param>
+        /// <param name="color"></param>
         /// <param name="font">Font</param>
         public TorchChatMessage(string author, string message, Color color, string font = DEFAULT_FONT)
         {
@@ -62,6 +55,9 @@ namespace Torch.API.Managers
         /// <param name="author">Author's name</param>
         /// <param name="authorSteamId">Author's steam ID</param>
         /// <param name="message">Message</param>
+        /// <param name="channel"></param>
+        /// <param name="target"></param>
+        /// <param name="color"></param>
         /// <param name="font">Font</param>
         public TorchChatMessage(string author, ulong authorSteamId, string message, ChatChannel channel, long target, Color color, string font = DEFAULT_FONT)
         {
@@ -80,6 +76,9 @@ namespace Torch.API.Managers
         /// </summary>
         /// <param name="authorSteamId">Author's steam ID</param>
         /// <param name="message">Message</param>
+        /// <param name="channel"></param>
+        /// <param name="target"></param>
+        /// <param name="color"></param>
         /// <param name="font">Font</param>
         public TorchChatMessage(ulong authorSteamId, string message, ChatChannel channel, long target, Color color, string font = DEFAULT_FONT)
         {
@@ -166,6 +165,6 @@ namespace Torch.API.Managers
         /// <param name="author">Author name</param>
         /// <param name="message">Message content</param>
         /// <param name="font">font to use</param>
-        void DisplayMessageOnSelf(string author, string message, string font = "Blue" );
+        void DisplayMessageOnSelf(string author, string message, string font = "Blue");
     }
 }

@@ -30,7 +30,7 @@ namespace Torch.Server.Managers
 
         private abstract class ModelFactory
         {
-            private readonly ConditionalWeakTable<EntityViewModel, EntityControlViewModel?> _models = new ConditionalWeakTable<EntityViewModel, EntityControlViewModel?>();
+            private readonly ConditionalWeakTable<EntityViewModel, EntityControlViewModel?> _models = new();
 #if !NETFRAMEWORK
             public IEnumerable<KeyValuePair<EntityViewModel, EntityControlViewModel?>> Models => _models;
 #endif
@@ -42,7 +42,7 @@ namespace Torch.Server.Managers
 #if NETFRAMEWORK
 #pragma warning disable 649
             [ReflectedGetter(Name = "Keys")]
-            private static Func<ConditionalWeakTable<EntityViewModel, EntityControlViewModel?>, ICollection<EntityViewModel>> _weakTableKeys;
+            private static Func<ConditionalWeakTable<EntityViewModel, EntityControlViewModel?>, ICollection<EntityViewModel>> _weakTableKeys = null!;
 #pragma warning restore 649
 
             /// <summary>
@@ -89,11 +89,11 @@ namespace Torch.Server.Managers
             }
         }
 
-        private readonly List<ModelFactory> _modelFactories = new List<ModelFactory>();
-        private readonly List<Delegate> _controlFactories = new List<Delegate>();
+        private readonly List<ModelFactory> _modelFactories = new();
+        private readonly List<Delegate> _controlFactories = new();
 
-        private readonly List<WeakReference<EntityViewModel>> _boundEntityViewModels = new List<WeakReference<EntityViewModel>>();
-        private readonly ConditionalWeakTable<EntityViewModel, MtObservableList<EntityControlViewModel>> _boundViewModels = new ConditionalWeakTable<EntityViewModel, MtObservableList<EntityControlViewModel>>();
+        private readonly List<WeakReference<EntityViewModel>> _boundEntityViewModels = new();
+        private readonly ConditionalWeakTable<EntityViewModel, MtObservableList<EntityControlViewModel>> _boundViewModels = new();
 
         /// <summary>
         /// This factory will be used to create component models for matching entity models.

@@ -43,7 +43,9 @@ quit";
         public Initializer(string basePath)
         {
             _basePath = basePath;
+#pragma warning disable CS0618 // Type or member is obsolete
             Instance = this;
+#pragma warning restore CS0618 // Type or member is obsolete
         }
 
         public bool Initialize(string[] args)
