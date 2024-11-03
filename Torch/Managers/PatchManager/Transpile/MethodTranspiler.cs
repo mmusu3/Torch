@@ -107,6 +107,9 @@ namespace Torch.Managers.PatchManager.Transpile
                     case MsilTryCatchOperationType.BeginClauseBlock:
                         target.BeginCatchBlock(tro.CatchType);
                         break;
+                    case MsilTryCatchOperationType.BeginFilterBlock:
+                        target.BeginExceptFilterBlock();
+                        break;
                     case MsilTryCatchOperationType.BeginFaultBlock:
                         target.BeginFaultBlock();
                         break;
@@ -124,9 +127,11 @@ namespace Torch.Managers.PatchManager.Transpile
                 foreach (MsilLabel label in il.Labels)
                     target.MarkLabel(label.LabelFor(target));
 
+                // ILGenerator automatically emits leave opcodes in the
+                // begin block calls above so skip the instructions here.
+
                 MsilInstruction ilNext = i < instructions.Length - 1 ? instructions[i + 1] : null;
 
-                // Leave opcodes emitted by these:
                 if (il.OpCode == OpCodes.Endfilter && ilNext != null &&
                     ilNext.TryCatchOperations.Any(x => x.Type == MsilTryCatchOperationType.BeginClauseBlock))
                     continue;
@@ -134,6 +139,7 @@ namespace Torch.Managers.PatchManager.Transpile
                 if ((il.OpCode == OpCodes.Leave || il.OpCode == OpCodes.Leave_S) && ilNext != null &&
                     ilNext.TryCatchOperations.Any(x => x.Type == MsilTryCatchOperationType.EndExceptionBlock ||
                                                        x.Type == MsilTryCatchOperationType.BeginClauseBlock ||
+                                                       x.Type == MsilTryCatchOperationType.BeginFilterBlock ||
                                                        x.Type == MsilTryCatchOperationType.BeginFaultBlock ||
                                                        x.Type == MsilTryCatchOperationType.BeginFinallyBlock))
                     continue;

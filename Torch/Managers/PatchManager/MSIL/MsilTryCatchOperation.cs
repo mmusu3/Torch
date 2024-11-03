@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Torch.Managers.PatchManager.MSIL
 {
@@ -16,7 +11,8 @@ namespace Torch.Managers.PatchManager.MSIL
         BeginClauseBlock,
         BeginFaultBlock,
         BeginFinallyBlock,
-        EndExceptionBlock
+        EndExceptionBlock,
+        BeginFilterBlock
     }
 
     /// <summary>
@@ -25,7 +21,7 @@ namespace Torch.Managers.PatchManager.MSIL
     public class MsilTryCatchOperation
     {
         internal int NativeOffset;
-        
+
         /// <summary>
         /// Operation type
         /// </summary>
@@ -38,8 +34,10 @@ namespace Torch.Managers.PatchManager.MSIL
         public MsilTryCatchOperation(MsilTryCatchOperationType op, Type caughtType = null)
         {
             Type = op;
+
             if (caughtType != null && op != MsilTryCatchOperationType.BeginClauseBlock)
                 throw new ArgumentException($"Can't use caught type with operation type {op}", nameof(caughtType));
+
             CatchType = caughtType;
         }
 

@@ -149,12 +149,16 @@ namespace Torch.Managers.PatchManager.Transpile
                 foreach (var clause in MethodBody.ExceptionHandlingClauses)
                 {
                     AddEhHandler(clause.TryOffset, MsilTryCatchOperationType.BeginExceptionBlock);
-                    if ((clause.Flags & ExceptionHandlingClauseOptions.Fault) != 0)
-                        AddEhHandler(clause.HandlerOffset, MsilTryCatchOperationType.BeginFaultBlock);
+
+                    if ((clause.Flags & ExceptionHandlingClauseOptions.Filter) != 0)
+                        AddEhHandler(clause.HandlerOffset, MsilTryCatchOperationType.BeginFilterBlock);
                     else if ((clause.Flags & ExceptionHandlingClauseOptions.Finally) != 0)
                         AddEhHandler(clause.HandlerOffset, MsilTryCatchOperationType.BeginFinallyBlock);
+                    else if ((clause.Flags & ExceptionHandlingClauseOptions.Fault) != 0)
+                        AddEhHandler(clause.HandlerOffset, MsilTryCatchOperationType.BeginFaultBlock);
                     else
                         AddEhHandler(clause.HandlerOffset, MsilTryCatchOperationType.BeginClauseBlock, clause.CatchType);
+
                     AddEhHandler(clause.HandlerOffset + clause.HandlerLength, MsilTryCatchOperationType.EndExceptionBlock);
                 }
             }
@@ -163,31 +167,33 @@ namespace Torch.Managers.PatchManager.Transpile
             {
                 foreach (var eh in _dynamicExceptionTable)
                 {
-                    var catchCount = _exceptionHandlerGetCatchCount(eh);
+                    int catchCount = _exceptionHandlerGetCatchCount(eh);
                     var exTypes = _exceptionHandlerGetTypes(eh);
                     var exCatches = _exceptionHandlerGetCatchAddrs(eh);
                     var exCatchesEnd = _exceptionHandlerGetCatchEndAddrs(eh);
                     var exFilters = _exceptionHandlerGetFilterAddrs(eh);
-                    var tryAddr = _exceptionHandlerGetStart(eh);
-                    var endAddr = _exceptionHandlerGetEnd(eh);
-                    var endFinallyAddr = _exceptionHandlerGetFinallyEnd(eh);
+                    int tryAddr = _exceptionHandlerGetStart(eh);
+                    int endAddr = _exceptionHandlerGetEnd(eh);
+                    int endFinallyAddr = _exceptionHandlerGetFinallyEnd(eh);
 
                     for (var i = 0; i < catchCount; i++)
                     {
                         var flags = (ExceptionHandlingClauseOptions)exTypes[i];
-                        var endAddress = (flags & ExceptionHandlingClauseOptions.Finally) != 0 ? endFinallyAddr : endAddr;
 
-                        var catchAddr = exCatches[i];
-                        var catchEndAddr = exCatchesEnd[i];
-                        var filterAddr = exFilters[i];
+                        int catchAddr = exCatches[i];
+                        int catchEndAddr = exCatchesEnd[i];
 
                         AddEhHandler(tryAddr, MsilTryCatchOperationType.BeginExceptionBlock);
-                        if ((flags & ExceptionHandlingClauseOptions.Fault) != 0)
-                            AddEhHandler(catchAddr, MsilTryCatchOperationType.BeginFaultBlock);
+
+                        if ((flags & ExceptionHandlingClauseOptions.Filter) != 0)
+                            AddEhHandler(exFilters[i], MsilTryCatchOperationType.BeginFilterBlock);
                         else if ((flags & ExceptionHandlingClauseOptions.Finally) != 0)
                             AddEhHandler(catchAddr, MsilTryCatchOperationType.BeginFinallyBlock);
+                        else if ((flags & ExceptionHandlingClauseOptions.Fault) != 0)
+                            AddEhHandler(catchAddr, MsilTryCatchOperationType.BeginFaultBlock);
                         else
                             AddEhHandler(catchAddr, MsilTryCatchOperationType.BeginClauseBlock);
+
                         AddEhHandler(catchEndAddr, MsilTryCatchOperationType.EndExceptionBlock);
                     }
                 }
