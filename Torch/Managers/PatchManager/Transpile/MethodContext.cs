@@ -203,6 +203,13 @@ namespace Torch.Managers.PatchManager.Transpile
         private void AddEhHandler(int offset, MsilTryCatchOperationType op, Type type = null)
         {
             var instruction = FindInstruction(offset);
+
+            // If a catch block is at the end of a method that does not
+            // return then there will be no instruction at the given offset.
+            // Add a nop instruction as a workaround.
+            if (instruction == null && offset > _instructions[_instructions.Count - 1].Offset)
+                _instructions.Add(instruction = new MsilInstruction(OpCodes.Nop));
+
             instruction.TryCatchOperations.Add(new MsilTryCatchOperation(op, type) { NativeOffset = offset });
             instruction.TryCatchOperations.Sort((a, b) => a.NativeOffset.CompareTo(b.NativeOffset));
         }
