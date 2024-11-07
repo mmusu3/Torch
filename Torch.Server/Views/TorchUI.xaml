@@ -70,7 +70,7 @@
                 </Label.Content>
             </Label>
         </StackPanel>
-        <TabControl Grid.Row="1" Height="Auto" x:Name="TabControl" Margin="5">
+        <TabControl x:Name="TabControl" Grid.Row="1" Height="Auto" Margin="5" Padding="0">
             <TabItem Header="Log">
                 <RichTextBox x:FieldModifier="public" x:Name="ConsoleText" VerticalScrollBarVisibility="Visible" FontFamily="Consolas" IsReadOnly="True" Background="#0c0c0c"/>
             </TabItem>

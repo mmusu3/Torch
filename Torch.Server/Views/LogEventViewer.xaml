@@ -5,29 +5,27 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:Torch.Server.Views"
              mc:Ignorable="d"
+             Padding="5,0,5,5"
              d:DesignHeight="300" d:DesignWidth="300">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition MaxHeight="25px"/>
+            <RowDefinition MaxHeight="35px"/>
             <RowDefinition/>
         </Grid.RowDefinitions>
-        
-        
-        <!-- make a Level and class filter for the log, along with a reset button -->
-        <StackPanel Orientation="Horizontal">
-            <TextBlock Text="Level:" Margin="0,0,5,0"/>
-            <ComboBox x:Name="LevelFilterComboBox" Width="100" ItemsSource="{Binding LogLevels}" Margin="0,0,5,0" SelectionChanged="LevelFilterComboBox_SelectionChanged"/>
-            <TextBlock Text="Class:" Margin="0,0,5,0"/>
-            <ComboBox x:Name="ClassFilterComboBox" Width="130" ItemsSource="{Binding LogClasses}" Margin="0,0,5,0" SelectionChanged="ClassFilterComboBox_SelectionChanged"/>
-            
-            <Button x:Name="ResetFiltersButton" Content="Reset filters" Margin="0,0,5,0" Click="ResetFiltersButton_Click" />
-            <Button x:Name="ClearButton" Content="Clear table" Margin="0,0,5,0" Click="ClearButton_Click" />
-            
-            <Button x:Name="TestButton" Content="Test log" Margin="0,0,5,0" Click="TestButton_OnClickButton_Click" Visibility="Hidden" />
 
+        <!-- make a Level and class filter for the log, along with a reset button -->
+        <StackPanel Orientation="Horizontal" Margin="0,5,0,5">
+            <TextBlock Text="Level:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <ComboBox x:Name="LevelFilterComboBox" Width="100" ItemsSource="{Binding LogLevels}" Margin="0,0,5,0" SelectionChanged="LevelFilterComboBox_SelectionChanged"/>
+            <TextBlock Text="Class:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <ComboBox x:Name="ClassFilterComboBox" Width="130" ItemsSource="{Binding LogClasses}" Margin="0,0,5,0" SelectionChanged="ClassFilterComboBox_SelectionChanged"/>
+
+            <Button x:Name="ResetFiltersButton" Content="Reset filters" Margin="0,0,5,0" Padding="5,0,5,0" Click="ResetFiltersButton_Click" />
+            <Button x:Name="ClearButton" Content="Clear table" Margin="0,0,5,0" Padding="5,0,5,0" Click="ClearButton_Click" />
+
+            <Button x:Name="TestButton" Content="Test log" Margin="0,0,5,0" Click="TestButton_OnClickButton_Click" Visibility="Hidden" />
         </StackPanel>
 
-        
         <DataGrid Grid.Row="1" x:Name="LogEventViewerDataGrid" AutoGenerateColumns="False" CanUserAddRows="False" MouseDoubleClick="LogEventViewerDataGrid_MouseDoubleClick" CanUserDeleteRows="False" CanUserReorderColumns="False" CanUserResizeColumns="true" CanUserResizeRows="False" CanUserSortColumns="True" IsReadOnly="True" ItemsSource="{Binding LogEvents}" RowHeight="20">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="60"/>

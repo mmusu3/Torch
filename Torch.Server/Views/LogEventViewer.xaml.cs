@@ -71,7 +71,7 @@ namespace Torch.Server.Views
                 LevelFilterComboBox.SelectedIndex = 0;
                 ClassFilterComboBox.SelectedIndex = 0;
 
-                if (TorchServer.Instance.Config.BranchName == TorchBranchType.dev)
+                if (TorchServer.Instance != null && TorchServer.Instance.Config.BranchName == TorchBranchType.dev)
                     TestButton.Visibility = Visibility.Visible;
             };
         }
