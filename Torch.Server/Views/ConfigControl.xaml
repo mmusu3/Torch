@@ -25,8 +25,8 @@
             <RowDefinition />
         </Grid.RowDefinitions>
         <DockPanel Grid.Row="0">
-            <Button Content="Import World Config" Margin="3" Padding="3" DockPanel.Dock="Left" Click="ImportConfig_OnClick" ToolTip="Select a world save to load the config from."/>
             <Button Content="New World" Margin="3" Padding="3" DockPanel.Dock="Left" Click="NewWorld_OnClick"/>
+            <Button Content="Import World Config" Margin="3" Padding="3" DockPanel.Dock="Left" Click="ImportConfig_OnClick" ToolTip="Select a world save to load the config from."/>
             <Label Content="Current World:" DockPanel.Dock="Left" VerticalAlignment="Center" />
             <Border BorderBrush="#FF7F7F7F" BorderThickness="1" SnapsToDevicePixels="True" DockPanel.Dock="Right">
                 <ContentControl Name="currentWorld" Content="{Binding SelectedWorld}" Margin="3">
