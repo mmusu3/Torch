@@ -151,15 +151,9 @@
     </Compile>
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="CompilerRefAssemblies\netstandard.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="CompilerRefAssemblies\System.Collections.Immutable.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="CompilerRefAssemblies\System.Memory.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  <ItemGroup Condition="$(TargetFramework) == 'net8-windows'">
+    <Content Include="CompilerRefAssemblies\*.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 </Project>

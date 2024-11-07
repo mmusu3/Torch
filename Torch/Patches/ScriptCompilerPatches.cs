@@ -1,6 +1,6 @@
-﻿using System;
+﻿#if !NETFRAMEWORK
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -26,55 +26,23 @@ public static class MyScriptCompilerPatch
         ctx.GetPattern(source).Prefixes.Add(replacement);
     }
 
-    // In .NET Framework when running under a debugger, this will
-    // not catch the first call to AddReferencedAssemblies().
-    // It is inside the MyScriptCompiler constructor which is
-    // invoked by the static constructor which is invoked by the
-    // method patcher. Therefore it needs to recreate the whitelist
-    // and analyzers on the next call to AddReferencedAssemblies()
-    // which is in MyVRageScriptingInternal.Initialize()
-    //
-    static bool Prefix(MyScriptCompiler __instance
-#if NETFRAMEWORK
-        , HashSet<string> __field_m_assemblyLocations,
-        List<Microsoft.CodeAnalysis.MetadataReference> __field_m_metadataReferences,
-        ref MyScriptWhitelist __field_m_whitelist,
-        ref object __field_m_ingameWhitelistDiagnosticAnalyzer,
-        ref object __field_m_modApiWhitelistDiagnosticAnalyzer
-#endif
-        )
+    static bool Prefix(MyScriptCompiler __instance)
     {
+        // Only patch first call to AddReferencedAssemblies
         if (initialized)
             return true;
 
         initialized = true;
 
-#if NETFRAMEWORK
-        __field_m_assemblyLocations.Clear();
-        __field_m_metadataReferences.Clear();
-#endif
+        __instance.AddReferencedAssemblies(
+            "./CompilerRefAssemblies/mscorlib.dll",
+            "./CompilerRefAssemblies/netstandard.dll",
+            "./CompilerRefAssemblies/System.dll",
+            "./CompilerRefAssemblies/System.Core.dll",
+            "./CompilerRefAssemblies/System.Xml.dll",
+            Path.Combine(MyFileSystem.ExePath, "VRage.Scripting.dll"));
 
-        __instance.AddReferencedAssemblies("./CompilerRefAssemblies/netstandard.dll");
-
-#if !NETFRAMEWORK
         return false;
-#else
-        var ctor = typeof(MyScriptCompiler).GetConstructor(BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-        var sFrame = new StackFrame(2);
-        var previousMethod = sFrame.GetMethod();
-
-        if (previousMethod == ctor)
-            return false;
-
-        var whitelist = new MyScriptWhitelist(__instance);
-        __field_m_whitelist = whitelist;
-
-        var analyzerType = typeof(MyScriptCompiler).Assembly.GetType("VRage.Scripting.Analyzers.WhitelistDiagnosticAnalyzer");
-        __field_m_ingameWhitelistDiagnosticAnalyzer = Activator.CreateInstance(analyzerType, [ whitelist, MyWhitelistTarget.Ingame ]);
-        __field_m_modApiWhitelistDiagnosticAnalyzer = Activator.CreateInstance(analyzerType, [ whitelist, MyWhitelistTarget.ModApi ]);
-
-        return true;
-#endif
     }
 }
 
@@ -102,19 +70,24 @@ public static class MyScriptWhitelistPatch
         using (var batch = __instance.OpenBatch())
         {
             // AllowNamespaceOfTypes also captures assembly name information so multiple types in the
-            // same namespace must be used to register different asemblies, eg. List<T> and LinkedList<T>.
+            // same namespace must be used to register different assemblies, eg. IEnumerator<T> and LinkedList<T>.
 
             batch.AllowNamespaceOfTypes(MyWhitelistTarget.Both,
-                typeof(System.Collections.IEnumerator), typeof(List<>), /*typeof(System.Collections.Generic.LinkedList<>), */
-                typeof(System.Text.StringBuilder), typeof(System.Text.RegularExpressions.Regex), typeof(System.Globalization.Calendar));
+                typeof(System.Collections.IEnumerator), // System.Collections, mscorlib.dll
+                typeof(IEnumerator<>),                  // System.Collections.Generic, mscorlib.dll
+                typeof(LinkedList<>),                   // System.Collections.Generic, System.dll
+                typeof(HashSet<>),                      // System.Collections.Generic, System.Core.dll
+                typeof(System.Text.StringBuilder),
+                typeof(System.Text.RegularExpressions.Regex),
+                typeof(System.Globalization.Calendar));
 
             batch.AllowNamespaceOfTypes(MyWhitelistTarget.ModApi,
-                typeof(System.Linq.Enumerable), /*typeof(System.Collections.Concurrent.ConcurrentQueue<>), */typeof(System.Collections.Concurrent.ConcurrentBag<>));
+                typeof(Enumerable),                                            // System.Linq, System.Core.dll
+                typeof(System.Collections.Concurrent.ConcurrentDictionary<,>), // System.Collections.Concurrent, mscorlib.dll
+                typeof(System.Collections.Concurrent.ConcurrentBag<>)          // System.Collections.Concurrent, System.dll
+            );
 
-            batch.AllowTypes(MyWhitelistTarget.Ingame,
-                typeof(System.Linq.Enumerable), typeof(System.Linq.IGrouping<,>), typeof(System.Linq.ILookup<,>),
-                typeof(System.Linq.IOrderedEnumerable<>), typeof(System.Linq.Lookup<,>));
-
+            batch.AllowTypes(MyWhitelistTarget.Ingame, typeof(Enumerable), typeof(IGrouping<,>), typeof(ILookup<,>), typeof(IOrderedEnumerable<>), typeof(Lookup<,>));
             batch.AllowNamespaceOfTypes(MyWhitelistTarget.ModApi, typeof(System.Timers.Timer));
 
             batch.AllowTypes(MyWhitelistTarget.ModApi,
@@ -165,7 +138,8 @@ public static class MyScriptWhitelistPatch
             batch.AllowMembers(MyWhitelistTarget.Both, typeof(MemberInfo).GetProperty("Name"));
 
             batch.AllowMembers(MyWhitelistTarget.Both,
-                typeof(Type).GetProperty("FullName"), typeof(Type).GetMethod("GetTypeFromHandle"),
+                typeof(Type).GetProperty("FullName"),
+                typeof(Type).GetMethod("GetTypeFromHandle"),
                 typeof(Type).GetMethod("GetFields", [typeof(BindingFlags)]),
                 typeof(Type).GetMethod("IsEquivalentTo"),
                 typeof(Type).GetMethod("op_Equality"),
@@ -173,7 +147,12 @@ public static class MyScriptWhitelistPatch
                 typeof(Type).GetMethod("ToString"));
 
             batch.AllowMembers(MyWhitelistTarget.Both, typeof(ValueType).GetMethod("Equals"), typeof(ValueType).GetMethod("GetHashCode"), typeof(ValueType).GetMethod("ToString"));
-            batch.AllowMembers(MyWhitelistTarget.Both, typeof(Environment).GetProperty("CurrentManagedThreadId", BindingFlags.Static | BindingFlags.Public), typeof(Environment).GetProperty("NewLine", BindingFlags.Static | BindingFlags.Public), typeof(Environment).GetProperty("ProcessorCount", BindingFlags.Static | BindingFlags.Public));
+
+            batch.AllowMembers(MyWhitelistTarget.Both,
+                typeof(Environment).GetProperty("CurrentManagedThreadId", BindingFlags.Static | BindingFlags.Public),
+                typeof(Environment).GetProperty("NewLine", BindingFlags.Static | BindingFlags.Public),
+                typeof(Environment).GetProperty("ProcessorCount", BindingFlags.Static | BindingFlags.Public));
+
             batch.AllowMembers(MyWhitelistTarget.Both, (from m in AllDeclaredMembers(typeof(Delegate)) where m.Name != "CreateDelegate" select m).ToArray());
 
             batch.AllowTypes(MyWhitelistTarget.Both,
@@ -230,12 +209,7 @@ public static class MyScriptWhitelistBatchPatches
             var compilation = (Microsoft.CodeAnalysis.CSharp.CSharpCompilation)typeof(MyScriptWhitelist)
                 .GetMethod("CreateCompilation", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(whitelist, [])!;
 
-#if NETCOREAPP2_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
             compilations.AddOrUpdate(__instance, compilation);
-#else
-            _ = compilations.Remove(__instance);
-            compilations.Add(__instance, compilation);
-#endif
 
             return false;
         }
@@ -272,12 +246,12 @@ public static class MyScriptWhitelistBatchPatches
 }
 
 [PatchShim]
-static class MySandboxGamePatch
+static class InitIlCompilerPatch
 {
     public static void Patch(PatchContext ctx)
     {
-        var source = typeof(Sandbox.MySandboxGame).GetMethod("InitIlCompiler", BindingFlags.Instance | BindingFlags.NonPublic);
-        var replacement = typeof(MySandboxGamePatch).GetMethod(nameof(Prefix), BindingFlags.Static | BindingFlags.NonPublic);
+        var source = typeof(SpaceEngineers.Game.MySpaceGameCustomInitialization).GetMethod("InitIlCompiler", BindingFlags.Instance | BindingFlags.Public);
+        var replacement = typeof(InitIlCompilerPatch).GetMethod(nameof(Prefix), BindingFlags.Static | BindingFlags.NonPublic);
 
         ctx.GetPattern(source).Prefixes.Add(replacement);
     }
@@ -303,7 +277,6 @@ static class MySandboxGamePatch
             Path.Combine(MyFileSystem.ExePath, "VRage.Game.dll"),
             Path.Combine(MyFileSystem.ExePath, "VRage.Render.dll"),
             Path.Combine(MyFileSystem.ExePath, "VRage.Input.dll"),
-            Path.Combine(MyFileSystem.ExePath, "VRage.Scripting.dll"),
             Path.Combine(MyFileSystem.ExePath, "SpaceEngineers.ObjectBuilders.dll"),
             Path.Combine(MyFileSystem.ExePath, "SpaceEngineers.Game.dll"),
             Path.Combine(MyFileSystem.ExePath, "ProtoBuf.Net.Core.dll")
@@ -348,3 +321,4 @@ static class MySandboxGamePatch
         return "BRANCH_" + branchName;
     }
 }
+#endif
