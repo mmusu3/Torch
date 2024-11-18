@@ -51,7 +51,8 @@ public class TorchAssemblyResolver : IDisposable
 #if NETCOREAPP
     Assembly? ResolveAssembly(AssemblyLoadContext alc, AssemblyName name)
     {
-        return CurrentDomainOnAssemblyResolve(null, name, null);
+        lock (_assemblies)
+            return CurrentDomainOnAssemblyResolve(null, name, null);
     }
 
     IntPtr ResolveUnmanagedDll(Assembly assembly, string name)
