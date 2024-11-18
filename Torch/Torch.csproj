@@ -151,6 +151,17 @@
     </Compile>
   </ItemGroup>
 
+  <ItemGroup Condition="$(TargetFramework) == 'net48'">
+    <Content Include="CompilerRefAssemblies\netstandard.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="CompilerRefAssemblies\System.Memory.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="CompilerRefAssemblies\System.Collections.Immutable.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <ItemGroup Condition="$(TargetFramework) == 'net8-windows'">
     <Content Include="CompilerRefAssemblies\*.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

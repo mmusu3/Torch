@@ -1,5 +1,4 @@
-﻿#if !NETFRAMEWORK
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,6 +11,7 @@ using VRage.Scripting;
 
 namespace Torch.Patches;
 
+#if !NETFRAMEWORK
 [PatchShim]
 public static class MyScriptCompilerPatch
 {
@@ -244,6 +244,7 @@ public static class MyScriptWhitelistBatchPatches
         }
     }
 }
+#endif
 
 [PatchShim]
 static class InitIlCompilerPatch
@@ -265,6 +266,9 @@ static class InitIlCompilerPatch
     static void InitIlCompiler()
     {
         var assemblyReferences = new string[] {
+#if NETFRAMEWORK
+            "./CompilerRefAssemblies/netstandard.dll",
+#endif
             "./CompilerRefAssemblies/System.Memory.dll",
             "./CompilerRefAssemblies/System.Collections.Immutable.dll",
 
@@ -321,4 +325,3 @@ static class InitIlCompilerPatch
         return "BRANCH_" + branchName;
     }
 }
-#endif
